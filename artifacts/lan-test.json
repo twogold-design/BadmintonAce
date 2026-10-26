@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "address": "ws://10.11.179.27:18766/ws",
+  "entry": "local file",
+  "server": "standalone EXE",
+  "checks": [
+    "lobby male/female selection",
+    "male host / female guest synchronized",
+    "room list",
+    "password rejected",
+    "password accepted",
+    "two clients join",
+    "ranking UI"
+  ],
+  "errors": [],
+  "limitation": "Both browsers are on this host; second physical PC and firewall still require validation."
+}

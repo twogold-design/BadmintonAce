@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "checks": [
+    "both menu selections",
+    "front/back preview",
+    "female selection persisted after reload",
+    "female player serves",
+    "AI returns"
+  ],
+  "errors": []
+}

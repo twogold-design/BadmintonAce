@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "room": "3A633A",
+  "score": [
+    1,
+    0
+  ],
+  "checks": [
+    "male/female menu selection",
+    "selection persists after reload",
+    "female host / male guest synchronized",
+    "create",
+    "browse idle rooms and join",
+    "nonpublic share blocked",
+    "serve",
+    "remote movement",
+    "guest return",
+    "P2 own baseline camera",
+    "P2 local-direction movement",
+    "buffered ball and velocity rendering",
+    "state sync",
+    "score sync",
+    "pause/resume",
+    "disconnect"
+  ],
+  "errors": []
+}

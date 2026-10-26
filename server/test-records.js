@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {Records}=require('./records');
+const dir=fs.mkdtempSync(path.join(process.env.TEMP||os.tmpdir(),'ace-records-'));
+const file=path.join(dir,'scores.sqlite');
+let db=new Records(file);
+const a=db.profile('','甲'),b=db.profile('','乙');
+assert.throws(()=>db.profile('invalid','冒充'));
+assert.equal(db.finish('one',a.id,b.id,[11,3]),true);
+assert.equal(db.finish('one',a.id,b.id,[11,3]),false);
+db.close();db=new Records(file);
+assert.equal(db.profile(a.token,'新昵称').id,a.id);
+assert.equal(db.leaders()[0].wins,1);assert.equal(db.leaders()[0].games,1);assert.equal(db.leaders()[0].name,'新昵称');
+db.close();console.log('PASS: persistent identity, restart recovery, single settlement transaction.');

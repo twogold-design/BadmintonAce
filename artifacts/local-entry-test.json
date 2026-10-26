@@ -1,0 +1,23 @@
+[
+  {
+    "label": "root-file",
+    "url": "file:///M:/NewGames/BadmintonAce/index.html",
+    "menu": true,
+    "playerServeAndAiReturn": true,
+    "errors": []
+  },
+  {
+    "label": "export-file",
+    "url": "file:///M:/NewGames/BadmintonAce/build/web/index.html",
+    "menu": true,
+    "playerServeAndAiReturn": true,
+    "errors": []
+  },
+  {
+    "label": "http",
+    "url": "http://127.0.0.1:18765/index.html",
+    "menu": true,
+    "playerServeAndAiReturn": true,
+    "errors": []
+  }
+]

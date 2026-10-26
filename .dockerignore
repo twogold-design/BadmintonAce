@@ -1,0 +1,10 @@
+*
+!Dockerfile
+!server/
+!server/**
+!build/
+!build/web/
+!build/web/**
+server/node_modules/
+server/test*.js
+build/web/local-data.js

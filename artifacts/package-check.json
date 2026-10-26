@@ -1,0 +1,18 @@
+[
+  {
+    "package": "BadmintonAce-Web.zip",
+    "zip_bytes": 47341620,
+    "extracted_bytes": 84624225,
+    "index_html": true,
+    "integrity": true,
+    "no_player_data": true
+  },
+  {
+    "package": "BadmintonAce-Server.zip",
+    "zip_bytes": 81717132,
+    "extracted_bytes": 176953177,
+    "index_html": true,
+    "integrity": true,
+    "no_player_data": true
+  }
+]

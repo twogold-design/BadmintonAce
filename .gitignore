@@ -1,0 +1,23 @@
+.godot/
+.runtime/
+tools/node_modules/
+server/node_modules/
+build/
+dist/
+*.log
+data/
+BadmintonAce-Server.exe
+
+# Local secrets and player databases
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.db
+*.db-wal
+*.db-shm
+*.pem
+*.key
+__pycache__/
+*.pyc

@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "highBall": [
+    0.554299890995026,
+    0.83383721113205,
+    4.54269933700562
+  ],
+  "highBallScreen": [
+    800.854858398438,
+    318.540802001953
+  ],
+  "checks": [
+    "baseline camera",
+    "C overhead and return",
+    "H guides off/on",
+    "visible high serve",
+    "AI return",
+    "help",
+    "1280x800 pause"
+  ],
+  "errors": []
+}
