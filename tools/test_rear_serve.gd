@@ -25,6 +25,15 @@ func run():
 				p.charge=charge
 				for tick in range(30): game.FOOTWORK.update(p,index,1.0/120,true,true,shuttle,false)
 				model.animate(p,index,shuttle,0)
+				var forearm: Vector3=(model.joint_points.hand_r-model.joint_points.lowerarm_r).normalized()
+				var palm: Basis=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
+				var lower: Basis=model.poses[model.bones.lowerarm_r].basis*model.rests[model.bones.lowerarm_r].basis.inverse()
+				var wrist_twist=absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))
+				check(wrist_twist<deg_to_rad(15),"Preparation does not leave forearm roll twisted at wrist seam")
+				check(palm.x.dot(forearm)>cos(deg_to_rad(35)),"Prepared palm continues the forearm without a sharp wrist bend")
+				var thumb: Vector3=model.poses[model.bones.thumb_01_r].origin
+				var pinky: Vector3=model.poses[model.bones.pinky_01_r].origin
+				check((thumb-pinky).dot(model.racket_basis_current.y)>.025,"Prepared grip keeps thumb above pinky")
 				check(model.racket_basis_current.y.y>.9,"Ready racket stays upright for either player and all overhead shots")
 				check(model.racket_center_world.y>model.position.y+model.joint_points.hand_r.y+.4,"Racket head is above the grip")
 			p.charge=-1

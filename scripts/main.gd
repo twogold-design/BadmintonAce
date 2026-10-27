@@ -164,6 +164,7 @@ func _reset_players() -> void:
 	players.clear()
 	for i in range(2):
 		var avatar = selected_avatar if i==0 else ("female" if selected_avatar=="male" else "male")
+		if mode=="ai": avatar = selected_avatar
 		if mode=="online" and screen=="game":
 			avatar = selected_avatar if i==(1 if net_role=="guest" else 0) else remote_avatar
 		players.append({"pos":Vector2(0, 3.6 if i == 0 else -3.6), "vel":Vector2.ZERO,

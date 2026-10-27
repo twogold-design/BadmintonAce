@@ -3,6 +3,7 @@
   "checks": [
     "both menu selections",
     "front/back preview",
+    "same-gender challenge for male and female",
     "female selection persisted after reload",
     "female player serves",
     "AI returns"

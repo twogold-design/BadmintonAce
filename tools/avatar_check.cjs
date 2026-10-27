@@ -18,15 +18,18 @@ const root=path.resolve(__dirname,'..');
    await p.screenshot({path:path.join(root,'artifacts','avatar-selection.png')});
    await p.mouse.click(avatar==='female'?970:470,450);
    await p.waitForFunction(a=>window.badmintonState.screen==='menu'&&window.badmintonState.selected_avatar===a,avatar);
+   await p.mouse.click(200,585);
+   await p.waitForFunction(a=>window.badmintonState.screen==='game'&&window.badmintonState.avatars.every(v=>v===a),avatar);
+   await p.reload();await p.waitForFunction(()=>window.badmintonState?.screen==='menu');
   }
   await p.reload();await p.waitForFunction(()=>window.badmintonState?.screen==='menu'&&window.badmintonState.selected_avatar==='female');
-  await p.mouse.click(200,585);await p.waitForFunction(()=>window.badmintonState.screen==='game'&&window.badmintonState.avatars[0]==='female');
+  await p.mouse.click(200,585);await p.waitForFunction(()=>window.badmintonState.screen==='game'&&window.badmintonState.avatars.every(v=>v==='female'));
   await p.waitForTimeout(300);
   await p.keyboard.down('l');await p.waitForTimeout(150);await p.keyboard.up('l');
   await p.waitForFunction(()=>window.badmintonState.hits>=2);
   await p.screenshot({path:path.join(root,'artifacts','female-ai-play.png')});
   assert.equal(errors.length,0,errors.join('\n'));
-  fs.writeFileSync(path.join(root,'artifacts','avatar-test.json'),JSON.stringify({ok:true,checks:['both menu selections','front/back preview','female selection persisted after reload','female player serves','AI returns'],errors},null,2));
+  fs.writeFileSync(path.join(root,'artifacts','avatar-test.json'),JSON.stringify({ok:true,checks:['both menu selections','front/back preview','same-gender challenge for male and female','female selection persisted after reload','female player serves','AI returns'],errors},null,2));
   console.log('PASS: avatar selection, persistence, preview and AI play');
  }finally{await context.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

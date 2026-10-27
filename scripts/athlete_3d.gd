@@ -318,7 +318,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var ready_axis = Vector3(.10,.85,-.40).normalized()
 	# Preparation holds the head above the hand; racket drop belongs to the stroke,
 	# not the waiting pose. Keep the raised elbow and hand in the shoulder plane.
-	var hand = lerp_vector(ready_hand,Vector3(.32,1.57+height_adjust,.04),prep)
+	var hand = lerp_vector(ready_hand,Vector3(.48,1.57+height_adjust,-.27),prep)
 	var axis = ready_axis.slerp(Vector3(.10,.96,.20).normalized(),prep)
 	var free_hand = lerp_vector(Vector3(-.28,1.17+height_adjust,-.20),Vector3(-.23,1.76+height_adjust,-.34),prep)
 	if serving:
@@ -358,11 +358,22 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var right_shoulder = chest+chest_basis*(rest_at("upperarm_r")-rest_at("spine_03"))
 	var left_shoulder = chest+chest_basis*(rest_at("upperarm_l")-rest_at("spine_03"))
 	# Pole targets orient elbows through the shoulder plane, rather than rotating a flat arm.
-	var arm_pole = right_shoulder+chest_basis*Vector3(.12,-.65,.02).lerp(Vector3(.42,-.08,.04),prep)
+	var arm_pole = right_shoulder+chest_basis*Vector3(.12,-.65,.02).lerp(Vector3(.40,.10,-.20),prep)
 	if hit and str(p.stroke)=="overhead":
 		# The elbow and forearm travel across the front of the shirt on follow-through.
 		arm_pole = right_shoulder+chest_basis*Vector3(.28,-.16,-.10).lerp(Vector3(.35,-.35,-.30),smoothstep(0,.4,t))
 	var racket_basis = Basis(Quaternion(Vector3.UP,axis.normalized()))
+	if not hit and not serving:
+		# A shaft direction alone has no roll. The shortest UP-to-shaft rotation
+		# lost the shoulder turn and left the palm twisted against the forearm.
+		# Resolve the string-bed roll from the elbow-to-wrist direction instead.
+		var elbow = solve_joint(right_shoulder,hand,arm_pole,length_between("upperarm_r","lowerarm_r"),length_between("lowerarm_r","hand_r"))
+		var forearm = (hand-elbow).normalized()
+		var shaft = axis.normalized()
+		var fingers = (forearm-shaft*forearm.dot(shaft)).normalized()
+		if fingers.length()>.01:
+			var prepared_basis = Basis(shaft.cross(-fingers),shaft,-fingers).orthonormalized()
+			racket_basis = Basis(racket_basis.get_rotation_quaternion().slerp(prepared_basis.get_rotation_quaternion(),smoothstep(0,.65,prep)))
 	# Rest fingers point +X, thumb is on -Z, palm faces -Y.
 	# In a forehand grip the thumb side points toward the racket head (+Y).
 	# Preserve handedness: the previous frame put the pinky above the thumb.
@@ -374,7 +385,11 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var target_up = grip_basis.y-forearm_direction*grip_basis.y.dot(forearm_direction)
 	if target_up.length()>.01:
 		var twist = forearm_basis.y.signed_angle_to(target_up.normalized(),forearm_direction)
-		pose("lowerarm_r",joint_points.lowerarm_r,Basis(forearm_direction,clampf(twist,-1.15,1.15)*.7)*forearm_basis)
+		var prepared = smoothstep(0,.65,prep) if not hit and not serving else 0.0
+		# Let the forearm carry preparation pronation instead of leaving the
+		# remaining rotation as an abrupt twist at the wrist seam.
+		var applied_twist = lerpf(clampf(twist,-1.15,1.15)*.7,clampf(twist,-1.65,1.65),prepared)
+		pose("lowerarm_r",joint_points.lowerarm_r,Basis(forearm_direction,applied_twist)*forearm_basis)
 	var free_pole = left_shoulder+chest_basis*Vector3(-.12,-.75,.15).lerp(Vector3(-.40,.05,.1),prep)
 	var free_elbow = solve_joint(left_shoulder,free_hand,free_pole,length_between("upperarm_l","lowerarm_l"),length_between("lowerarm_l","hand_l"))
 	limb("upperarm_l","lowerarm_l","hand_l",left_shoulder,free_hand,free_pole,length_between("upperarm_l","lowerarm_l"),length_between("lowerarm_l","hand_l"),Basis(Quaternion((rest_at("hand_l")-rest_at("lowerarm_l")).normalized(),(free_hand-free_elbow).normalized())))
