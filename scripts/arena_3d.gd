@@ -99,9 +99,44 @@ func build_court() -> void:
 	var seats = ATHLETE_3D.material(Color("16323e"))
 	for z in [-8.6,8.6]:
 		for row in range(3): box(court,Vector3(0,.25+row*.28,z+signf(z)*row*.45),Vector3(9,.25,.38),seats)
+	# Sponsor perimeter outside the run-off area. Text faces the playing court.
+	for side in [-1,1]:
+		for k in range(6):
+			advert_board(Vector3(side*4.9,0,-6.75+k*2.7),-side*PI/2,2.62,k+(0 if side<0 else 2))
+		for k in range(4):
+			advert_board(Vector3(-3.6+k*2.4,0,side*8.2),PI if side>0 else 0,2.32,k+1)
+
+func advert_board(at: Vector3, yaw: float, width: float, variant: int) -> void:
+	var holder = Node3D.new()
+	court.add_child(holder)
+	holder.position = at
+	holder.rotation.y = yaw
+	var index = variant%4
+	var colors = [Color("153a43"),Color("dce8d3"),Color("be5d48"),Color("182837")]
+	var inks = [Color("d6f68c"),Color("24494d"),Color("fff1df"),Color("cce4dd")]
+	var base = ATHLETE_3D.material(colors[index])
+	var trim = ATHLETE_3D.material(inks[index])
+	box(holder,Vector3(0,.34,0),Vector3(width,.66,.065),base)
+	box(holder,Vector3(0,.665,.01),Vector3(width,.025,.09),trim)
+	for end in [-1,1]:
+		box(holder,Vector3(end*(width*.5-.15),.035,-.10),Vector3(.12,.06,.40),ATHLETE_3D.material(Color("101e27")))
+	var label = Label3D.new()
+	var advert_font = FontVariation.new()
+	advert_font.base_font = preload("res://assets/NotoSansSC.ttf")
+	advert_font.variation_opentype = {0x77676874:750.0}
+	label.font = advert_font
+	label.text = ["ACE SPORTS","羽动装备","FEATHER CLUB","飞羽运动"][index]
+	label.font_size = 64
+	label.pixel_size = .0046
+	label.modulate = inks[index]
+	label.outline_size = 0
+	label.position = Vector3(0,.37,.075)
+	holder.add_child(label)
 
 func configure_view(game: Node2D) -> void:
-	var key = game.screen+str(game.baseline_camera)+str(game._local_player_index())
+	var viewport_size = Vector2i(game.get_viewport_rect().size)
+	if viewport_size.x>0 and viewport_size.y>0 and size!=viewport_size: size=viewport_size
+	var key = game.screen+str(game.baseline_camera)+str(game._local_player_index())+str(size)
 	if key==view_key: return
 	view_key = key
 	if game.screen=="avatars":
@@ -111,19 +146,25 @@ func configure_view(game: Node2D) -> void:
 		camera.look_at(Vector3.ZERO)
 	elif game.screen=="menu":
 		camera.projection = Camera3D.PROJECTION_PERSPECTIVE
-		camera.fov = 42
-		camera.position = Vector3(-7,12,20)
-		camera.look_at(Vector3(-6.0,.4,0))
+		camera.fov = 37
+		camera.position = Vector3(-6,12,18)
+		camera.look_at(Vector3(-5.2,.5,0))
 	else:
 		var side = game._view_sign()
 		camera.projection = Camera3D.PROJECTION_PERSPECTIVE
-		camera.fov = 44 if game.baseline_camera else 45
-		camera.position = Vector3(0,8.0,17.0*side) if game.baseline_camera else Vector3(0,17.5,13.0*side)
-		camera.look_at(Vector3(0,1.8 if game.baseline_camera else 1.15,0))
+		camera.fov = 35.5 if game.baseline_camera else 40
+		camera.position = Vector3(0,12.0,16.5*side) if game.baseline_camera else Vector3(0,17.5,13.0*side)
+		camera.look_at(Vector3(0,.5 if game.baseline_camera else .35,0))
+	if game.screen!="avatars":
+		var aspect = float(size.x)/size.y
+		# A 4:3 window still has ample room for the court: don't zoom it out
+		# just to preserve the old wide-screen header/sidebar proportions.
+		var minimum_aspect = 1.6 if game.screen=="menu" else .95
+		camera.fov = rad_to_deg(2*atan(tan(deg_to_rad(camera.fov)*.5)*maxf(1,minimum_aspect/aspect)))
 
 func project(value: Vector3, game: Node2D) -> Vector2:
 	configure_view(game)
-	return camera.unproject_position(Vector3(value.x,value.z,value.y))
+	return camera.unproject_position(Vector3(value.x,value.z,value.y))*Vector2(1440,900)/Vector2(size)
 
 func sync(game: Node2D) -> void:
 	configure_view(game)
@@ -146,7 +187,7 @@ func sync(game: Node2D) -> void:
 			p.merge({"pos":Vector2.ZERO,"vel":Vector2.ZERO,"jump":0.0,"swing":0.0,"charge":-1,"buffer":0.0,"landing":0.0,"step":0.0,"dash":0.0,"avatar":"male" if i<2 else "female"},true)
 			game.FOOTWORK.reset(p)
 			previews[i].animate(p,1-i%2,Vector3(0,0,2),game.clock_time)
-			previews[i].position = Vector3(([395,545,895,1045][i]-720)*8.2/900.0,(450-571)*8.2/900.0,0)
+			previews[i].position = Vector3(([395,545,895,1045][i]-720)*8.2/900.0*(float(size.x)/size.y)/1.6,(450-571)*8.2/900.0,0)
 	else:
 		for i in range(2): athletes[i].animate(game.players[i],i,game.ball,game.clock_time,game.phase=="serve" and game.server==i)
 		shuttle.position = Vector3(game.ball.x,game.ball.z,game.ball.y)

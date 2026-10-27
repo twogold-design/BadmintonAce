@@ -19,6 +19,9 @@ func run() -> void:
 	game.set_process(false)
 	game.set_physics_process(false)
 	game.sound_on = false
+	game._build_menu()
+	for frame in range(180): game._physics_process(1.0/60)
+	await capture("menu")
 	game.start_game("ai")
 	game.players[0].avatar = "male"
 	game.players[1].avatar = "female"

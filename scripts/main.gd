@@ -36,6 +36,8 @@ var avatar_return = "menu"
 var paused = false
 var clock_time = 0.0
 var menu_time = 0.0
+const DEMO_FLIGHT_TIME = 1.4
+var demo_leg = -1
 var ui: Control
 var players: Array[Dictionary] = []
 var ball = Vector3.ZERO
@@ -223,9 +225,13 @@ func _build_menu() -> void:
 	_button(str(goal_score) + " 分制", Rect2(1060, 38, 135, 42), _cycle_score)
 	_reset_players()
 	phase = "rally"
-	ball = Vector3(-1, -3, 2.5)
-	velocity = Vector3(1.2, 7.0, 4.5)
-	last_hit = 1
+	menu_time = 0.0
+	demo_leg = -1
+	ball_trail.clear()
+	for i in range(2):
+		players[i].pos = _demo_position(i,0)
+		FOOTWORK.reset(players[i])
+	_demo(0)
 
 func _avatar_id(value: Variant) -> String:
 	return "female" if str(value)=="female" else "male"
@@ -268,7 +274,7 @@ func _draw_avatar_selection() -> void:
 		if selected_avatar==avatar: _center(Vector2(x+210,688),"当前选择",16,LIME)
 		for side in range(2):
 			_center(Vector2(x+135+side*150,612),"正面" if side==0 else "背面",14,MUTED)
-	if arena!=null: draw_texture(arena.get_texture(),Vector2.ZERO)
+	if arena!=null: draw_texture_rect(arena.get_texture(),Rect2(0,0,1440,900),false)
 
 func _cycle_difficulty() -> void:
 	difficulty = (difficulty + 1) % 3
@@ -429,7 +435,6 @@ func _dash(i: int) -> void:
 func _process(delta: float) -> void:
 	clock_time += delta
 	_network_process(delta)
-	if screen == "menu": menu_time += delta
 	if arena!=null: arena.sync(self)
 	queue_redraw()
 
@@ -843,21 +848,41 @@ func _end_match(who: int) -> void:
 		print("SMOKE OK ", JSON.stringify({"score":score,"hits":total_hits,"longest":longest_rally,"stats":stats,"seconds":match_time}))
 		get_tree().quit(0)
 
+func _demo_position(index: int, time: float) -> Vector2:
+	return Vector2(sin(time*.55+index*2)*1.3,3.7 if index==0 else -3.8)
+
+func _demo_contact(index: int, time: float) -> Vector3:
+	var at = _demo_position(index,time)
+	var side = 1.0 if index==0 else -1.0
+	return Vector3(at.x+.35*side,at.y-.28*side,2.25)
+
 func _demo(dt: float) -> void:
+	# One physics clock drives feet, preparation, contact and the shuttle.
+	menu_time += dt
+	var leg_index = int(floor(menu_time/DEMO_FLIGHT_TIME))
+	var leg_time = menu_time-leg_index*DEMO_FLIGHT_TIME
+	var sender = leg_index%2
+	var receiver = 1-sender
+	var start = _demo_contact(sender,leg_index*DEMO_FLIGHT_TIME)
+	var finish = _demo_contact(receiver,(leg_index+1)*DEMO_FLIGHT_TIME)
+	ball = start.lerp(finish,leg_time/DEMO_FLIGHT_TIME)
+	ball.z += .5*G*leg_time*(DEMO_FLIGHT_TIME-leg_time)
+	velocity = (finish-start)/DEMO_FLIGHT_TIME+Vector3(0,0,.5*G*(DEMO_FLIGHT_TIME-2*leg_time))
+	last_hit = sender
 	for i in range(2):
 		var p = players[i]
 		p.swing = maxf(0, p.swing - dt)
-		var target = Vector2(sin(menu_time * .55 + i * 2) * 1.3, (3.7 if i == 0 else -3.8))
-		p.vel = (target - p.pos) * 2
-		p.pos = p.pos.lerp(target, dt * 2)
+		p.pos = _demo_position(i,menu_time)
+		p.vel = Vector2(cos(menu_time*.55+i*2)*.715,0)
 		p.step += p.vel.length() * dt * 2
-	var cycle = fmod(menu_time, 3.2) / 3.2
-	var leg = fmod(cycle * 2, 1.0)
-	var from = players[0].pos if cycle < .5 else players[1].pos
-	var dest = players[1].pos if cycle < .5 else players[0].pos
-	var pos: Vector2 = from.lerp(dest, leg)
-	ball = Vector3(pos.x, pos.y, 1.5 + sin(leg * PI) * 3.8)
-	if leg < .04: players[0 if cycle < .5 else 1].swing = .3
+		p.charge = 0 if i==receiver and DEMO_FLIGHT_TIME-leg_time<.45 else -1
+		if leg_index!=demo_leg and i==sender:
+			p.stroke = "overhead"
+			p.backhand = false
+			FOOTWORK.hit(p,i,start,false)
+			p.swing = maxf(0,FOOTWORK.SWING_TIME-leg_time)
+		FOOTWORK.update(p,i,dt,true,i==receiver,ball,false)
+	demo_leg = leg_index
 	ball_trail.push_front(ball)
 	if ball_trail.size() > 14: ball_trail.pop_back()
 
@@ -956,6 +981,7 @@ func _box(rect: Rect2, bg: Color = PANEL, border: Color = LINE, radius: int = 16
 
 func _background() -> void:
 	draw_rect(Rect2(0,0,1440,900), INK)
+	if screen=="game": return
 	for i in range(22):
 		var y = 100 + i * 40
 		draw_line(Vector2(0,y), Vector2(1440,y), Color(0.13,.24,.28,.10), 1)
@@ -997,7 +1023,7 @@ func _court_line(a: Vector2, b: Vector2, color: Color, width: float = 2.0) -> vo
 
 func _draw_court() -> void:
 	if arena!=null:
-		draw_texture(arena.get_texture(),Vector2.ZERO)
+		draw_texture_rect(arena.get_texture(),Rect2(0,0,1440,900),false)
 		return
 	# Low-lit arena terraces and an inset wooden apron.
 	for i in range(3):
@@ -1147,59 +1173,41 @@ func _draw_shuttle() -> void:
 	draw_circle(pos+Vector2(2,0).rotated(angle)*court_scale,3*court_scale,LIME)
 
 func _draw_menu() -> void:
-	_text(Vector2(84,187), "THE CLUB IS OPEN.   /   01", 15, LIME)
-	_text(Vector2(76,285), "谁是", 78)
-	_text(Vector2(76,380), "羽毛球高手", 78)
-	_text(Vector2(84,429), "B A D M I N T O N   A C E", 19, LIME)
+	_text(Vector2(76,210), "BADMINTON ACE", 17, LIME)
+	_text(Vector2(76,280), "谁是", 54)
+	_text(Vector2(76,350), "羽毛球高手", 54)
+
 	_text(Vector2(84,482), "轻吊、重杀，每一拍都有答案。", 23, WHITE)
 	_text(Vector2(84,516), "把对手调离中场，把胜利留在场上。", 18, MUTED)
-	_box(Rect2(1110,188,222,55),PANEL,LINE,12)
-	draw_circle(Vector2(1134,215),4,LIME)
-	_text(Vector2(1149,222), "主场开放 · 即刻开打",15)
-	_box(Rect2(859,749,376,45),PANEL,LINE,22)
-	_center(Vector2(1047,778),"精确落点  /  多种球路  /  实时联机",15,MUTED)
+
+
+
+
+
 	_text(Vector2(84,805), "键盘操作  ·  AI / 在线对战  ·  " + str(goal_score) + " 分一局",15,MUTED)
 	if save_best > 0: _text(Vector2(1144,128),"最佳回合  " + str(save_best) + " 拍",13,LIME)
 
 func _draw_hud() -> void:
-	var opponent = "PLAYER 02" if mode in ["local","online"] else "ACE BOT"
-	_box(Rect2(447,20,566,80),PANEL,LINE,18)
-	_text(Vector2(473,46), "PLAYER 01",13,LIME)
-	_text(Vector2(886,46), opponent,13,CORAL)
-	_center(Vector2(620,80),str(score[0]).pad_zeros(2),38,WHITE)
-	_center(Vector2(840,80),str(score[1]).pad_zeros(2),38,WHITE)
-	_center(Vector2(730,49),"自由练习" if mode == "practice" else str(goal_score) + " 分制",13,MUTED)
-	_center(Vector2(730,79),"—",22,MUTED)
-	draw_circle(Vector2(487 if server == 0 else 975,75),4,LIME if server == 0 else CORAL)
-	_text(Vector2(80,152), "在线对战" if mode == "online" else ("自由练习" if mode == "practice" else "单人挑战"),23)
-	_text(Vector2(80,184),("房间 " + room_code + " · " + str(net_rtt) + "ms") if mode == "online" else ["入门陪练", "进阶对手", "高手对决"][difficulty],15,MUTED)
-	if mode == "online": _text(Vector2(80,213),"你是 " + ("P1 · 本方底线" if net_role == "host" else "P2 · 本方底线"),15,LIME if net_role == "host" else CORAL)
-	# Compact HUD leaves the sidelines and baseline clear for the enlarged court.
-	_box(Rect2(40,245,220,116),PANEL,LINE,16)
-	_text(Vector2(60,275),"回合",15,MUTED)
-	_text(Vector2(108,280),str(rally),28,LIME)
-	_text(Vector2(167,275),"最长 " + str(longest_rally),14,MUTED)
-	_text(Vector2(60,331),"上一拍  " + str(last_speed) + " km/h",18,WHITE)
-	_box(Rect2(1180,245,220,116),PANEL,LINE,16)
-	_text(Vector2(1200,275),"P1 体力",14,LIME)
-	_bar(Vector2(1200,288),176,players[0].stamina,LIME)
-	_text(Vector2(1200,326),("P2" if mode in ["local","online"] else "AI") + " 体力",14,CORAL)
-	_bar(Vector2(1200,339),176,players[1].stamina,CORAL)
-	_box(Rect2(24,838,1392,55),PANEL,LINE,15)
-	_center(Vector2(210,859),"WASD  移动 / 蓄力时调整方向",14,WHITE)
-	_center(Vector2(720,859),"J 高远   K 吊球 / 网前   L 杀球 / 平抽   I 挑球",15,LIME)
-	_center(Vector2(1220,859),"按住蓄力 · 松开击球",14,WHITE)
-	_center(Vector2(210,883),"Space  跳跃    Shift  蹬步救球",13,MUTED)
-	_center(Vector2(720,883),"H  轨迹 / 落点 " + ("开" if guide_on else "关") + "     C  底线 / 俯视镜头",13,MUTED)
-	_center(Vector2(1220,883),"Esc  暂停 / 操作指南",13,MUTED)
-	if phase == "serve":
-		var msg = "P1 发球 · 松开 J 发高远球 / K 发小球"
-		if server == 1: msg = "P2 发球 · 松开 J 发高远球 / K 发小球" if mode == "online" else "对手准备发球"
-		_box(Rect2(442,790,576,43),Color("17362f"),Color("53764a"),20)
-		_center(Vector2(730,819),msg,17,LIME)
-	elif toast_time > 0:
-		_center(Vector2(730,822),toast,17,LIME)
-	if mode == "practice": _text(Vector2(1050,153),"有效回球 " + str(training_hits),16,LIME)
+	# Overlays occupy edge gaps; the 3D court never reserves a header region.
+	_box(Rect2(18,16,218,65),Color(.04,.10,.13,.80),LINE,12)
+	_text(Vector2(32,42),"P1",14,LIME)
+	_text(Vector2(153,42),"P2" if mode in ["local","online"] else "AI",14,CORAL)
+	_center(Vector2(100,62),str(score[0])+" : "+str(score[1]),28)
+	_text(Vector2(32,104),("在线 · "+str(net_rtt)+"ms") if mode=="online" else ("自由练习" if mode=="practice" else str(goal_score)+" 分制"),14,MUTED)
+	_text(Vector2(32,131),"回合 "+str(rally)+"  · 最长 "+str(longest_rally),14,MUTED)
+	_text(Vector2(32,158),str(last_speed)+" km/h",15,LIME)
+	_text(Vector2(1265,110),"P1",13,LIME)
+	_bar(Vector2(1300,103),94,players[0].stamina,LIME)
+	_text(Vector2(1265,140),"P2" if mode in ["local","online"] else "AI",13,CORAL)
+	_bar(Vector2(1300,133),94,players[1].stamina,CORAL)
+	_box(Rect2(18,857,1404,35),Color(.04,.10,.13,.78),LINE,10)
+	_center(Vector2(260,880),"WASD 移动   Space 跳跃   Shift 蹬步",14,WHITE)
+	_center(Vector2(790,880),"J 高远   K 吊球   L 杀球 / 平抽   I 挑球",14,LIME)
+	_center(Vector2(1240,880),"H 轨迹   C 镜头   Esc 暂停",13,MUTED)
+	if phase=="serve":
+		_text(Vector2(32,200),"松开 J / K 发球" if server==_local_player_index() else "对手准备发球",16,LIME)
+	elif toast_time>0:
+		_text(Vector2(32,200),toast,15,LIME)
 
 func _bar(pos: Vector2, width: float, value: float, color: Color) -> void:
 	draw_style_box(_style(Color("0b1923"),Color("0b1923"),4),Rect2(pos,Vector2(width,7)))
@@ -1459,6 +1467,16 @@ func _network_process(dt: float) -> void:
 	if OS.has_feature("web") and diagnostic_tick > .20:
 		diagnostic_tick = 0
 		var state = {"screen":screen,"phase":phase,"mode":mode,"role":net_role,"room":room_code,"status":net_status,"invitation":invite_url,"scope":connection_scope,"score":score,"hits":total_hits,"rally":rally,"paused":paused,"server":server,"last_hit":last_hit,"ball":[ball.x,ball.y,ball.z],"velocity":[velocity.x,velocity.y,velocity.z],"players":[[players[0].pos.x,players[0].pos.y],[players[1].pos.x,players[1].pos.y]],"baseline_camera":baseline_camera,"guide":guide_on,"selected_avatar":selected_avatar,"avatars":[players[0].avatar,players[1].avatar],"ball_screen":[_project(ball).x,_project(ball).y],"view_player":_local_player_index(),"footwork":[players[0].footwork,players[1].footwork]}
+		state.render_size = [arena.size.x,arena.size.y]
+		state.court_corners = []
+		for corner in [Vector3(-3.05,-6.7,0),Vector3(3.05,-6.7,0),Vector3(-3.05,6.7,0),Vector3(3.05,6.7,0)]:
+			var at = _project(corner)
+			state.court_corners.append([at.x,at.y])
+		if screen=="menu":
+			state.demo_leg = demo_leg
+			state.pelvis_heights = []
+			for athlete in arena.athletes:
+				state.pelvis_heights.append(athlete.poses[athlete.bones.pelvis].origin.y)
 		JavaScriptBridge.eval("window.badmintonState="+JSON.stringify(state)+";")
 	if socket == null: return
 	socket.poll()

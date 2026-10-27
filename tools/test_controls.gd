@@ -95,7 +95,7 @@ func _run() -> void:
 	check(game.players[0].stroke == "drive","low L uses drive animation")
 	# True camera projection must agree with the world, including off-screen extreme heights.
 	for side in [-6.7,0.0,6.7]:
-		var expected: Vector2 = game.arena.camera.unproject_position(Vector3(0,12,side))
+		var expected: Vector2 = game.arena.camera.unproject_position(Vector3(0,12,side))*Vector2(1440,900)/Vector2(game.arena.size)
 		check(game._project(Vector3(0,side,12)).distance_to(expected)<.001,"3D projection never distorts physical height")
 	check(game._floor(Vector2(0,6.7)).y > game._floor(Vector2(0,-6.7)).y,"near/far orientation retained")
 	var baseline_far = game._floor(Vector2(0,-6.7))

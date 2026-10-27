@@ -108,18 +108,29 @@ static func make_racket(parent: Node3D, accent: Material, dark: Material, white:
 	surface.generate_normals()
 	mesh(parent,surface.commit(),accent)
 	var strings = SurfaceTool.new()
-	strings.begin(Mesh.PRIMITIVE_LINES)
-	for k in range(-5,6):
-		var x = k*.020
+	strings.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# World-space thread thickness: screen-space GL lines turned into an opaque
+	# white disc when a distant racket was only a few pixels wide.
+	for k in range(-4,5):
+		var x = k*.024
 		var h = .168*sqrt(maxf(0,1-pow(x/.125,2)))
-		strings.add_vertex(Vector3(x,.58-h,0))
-		strings.add_vertex(Vector3(x,.58+h,0))
-	for k in range(-7,8):
-		var y = k*.021
+		string_thread(strings,Vector3(x,.58-h,0),Vector3(x,.58+h,0))
+	for k in range(-5,6):
+		var y = k*.028
 		var w = .122*sqrt(maxf(0,1-pow(y/.172,2)))
-		strings.add_vertex(Vector3(-w,.58+y,0))
-		strings.add_vertex(Vector3(w,.58+y,0))
-	mesh(parent,strings.commit(),white)
+		string_thread(strings,Vector3(-w,.58+y,.0005),Vector3(w,.58+y,.0005))
+	strings.generate_normals()
+	var string_mesh = mesh(parent,strings.commit(),material(Color("6b8285")))
+	string_mesh.name = "OpenStringBed"
+	string_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+static func string_thread(surface: SurfaceTool, a: Vector3, b: Vector3) -> void:
+	var tangent = (b-a).normalized()
+	var normal = tangent.cross(Vector3.FORWARD).normalized()
+	for j in range(4):
+		var u = (normal*cos(j*TAU/4)+Vector3.FORWARD*sin(j*TAU/4))*.0008
+		var v = (normal*cos((j+1)*TAU/4)+Vector3.FORWARD*sin((j+1)*TAU/4))*.0008
+		for point in [a+u,b+u,a+v,b+u,b+v,a+v]: surface.add_vertex(point)
 
 func pose(name_: String, at: Vector3, basis_: Basis) -> void:
 	var id: int = bones[name_]
