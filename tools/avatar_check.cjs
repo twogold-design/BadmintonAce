@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
 (async()=>{
- const context=await chromium.launchPersistentContext(path.join(root,'.runtime','avatar-check'),{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--enable-unsafe-swiftshader','--disable-crash-reporter','--disable-breakpad']});
+ const context=await chromium.launchPersistentContext(path.join(root,'.runtime','avatar-check'),{executablePath:process.env.ACE_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--enable-unsafe-swiftshader','--disable-crash-reporter','--disable-breakpad']});
  const errors=[];
  try{
   const p=await context.newPage();

@@ -1,7 +1,9 @@
 extends Node2D
-## Original procedural court, athletes, animation, sound and shuttle simulation.
+## Game rules, UI, procedural sound and shuttle simulation with a 3D arena.
 
 const ATHLETE = preload("res://scripts/athlete.gd")
+const ARENA_3D = preload("res://scripts/arena_3d.gd")
+var arena: SubViewport
 const FOOTWORK = preload("res://scripts/footwork.gd")
 const REMOTE_VIEW = preload("res://scripts/remote_view.gd")
 var remote_view = REMOTE_VIEW.new()
@@ -117,6 +119,9 @@ func _ready() -> void:
 	_make_audio()
 	_load_settings()
 	_reset_players()
+	arena = ARENA_3D.new()
+	add_child(arena)
+	arena.setup(self)
 	_build_menu()
 	if "--smoke-test" in OS.get_cmdline_user_args():
 		test_mode = true
@@ -259,13 +264,11 @@ func _draw_avatar_selection() -> void:
 		var avatar = "male" if i==0 else "female"
 		_box(Rect2(x,249,420,485),PANEL,LIME if selected_avatar==avatar else LINE,20)
 		_center(Vector2(x+210,300),"男选手" if i==0 else "女选手",28)
-		_center(Vector2(x+210,335),"运动短发 / 速干球衣" if i==0 else "高马尾 / 无袖球衣与运动裙裤",15,MUTED)
+		_center(Vector2(x+210,335),"运动短发 / 速干球衣" if i==0 else "清爽马尾 / 运动球衣与短裤",15,MUTED)
 		if selected_avatar==avatar: _center(Vector2(x+210,688),"当前选择",16,LIME)
 		for side in range(2):
-			var preview = players[side].duplicate(true)
-			preview.merge({"preview":true,"avatar":avatar,"vel":Vector2.ZERO,"jump":0.0,"dash":0.0,"swing":0.0,"charge":-1,"buffer":0.0,"landing":0.0},true)
-			ATHLETE.paint(self,preview,1-side,Vector2(x+135+side*150,571),1.95,clock_time)
 			_center(Vector2(x+135+side*150,612),"正面" if side==0 else "背面",14,MUTED)
+	if arena!=null: draw_texture(arena.get_texture(),Vector2.ZERO)
 
 func _cycle_difficulty() -> void:
 	difficulty = (difficulty + 1) % 3
@@ -324,11 +327,15 @@ func _begin_serve() -> void:
 		p.jump = 0.0
 		p.jump_v = 0.0
 		FOOTWORK.reset(p)
-	ball = Vector3(sx, players[server].pos.y, 1.2)
+	ball = _serve_ball()
 	velocity = Vector3.ZERO
 	last_hit = server
 	toast = "准备发球" if mode != "practice" else "练习模式 · 放松，找到击球节奏"
 	toast_time = 2.0
+
+func _serve_ball() -> Vector3:
+	var side = 1.0 if server==0 else -1.0
+	return Vector3(players[server].pos.x-.18*side,players[server].pos.y-.35*side,1.05)
 
 func _pause_menu() -> void:
 	if screen != "game": return
@@ -423,6 +430,7 @@ func _process(delta: float) -> void:
 	clock_time += delta
 	_network_process(delta)
 	if screen == "menu": menu_time += delta
+	if arena!=null: arena.sync(self)
 	queue_redraw()
 
 func _physics_process(delta: float) -> void:
@@ -452,7 +460,7 @@ func _physics_process(delta: float) -> void:
 	for i in range(2):
 		_update_player(i, dt, ai_both or (i == 1 and mode in ["ai", "practice"]))
 	if phase == "serve":
-		ball = Vector3(players[server].pos.x, players[server].pos.y, 1.15)
+		ball = _serve_ball()
 		if players[server].buffer > 0:
 			players[server].buffer = maxf(0,players[server].buffer-dt)
 			_try_hit(server,players[server].shot)
@@ -465,6 +473,7 @@ func _physics_process(delta: float) -> void:
 				players[i].buffer = maxf(0,players[i].buffer-dt)
 				if not _try_hit(i, players[i].shot) and players[i].buffer <= 0:
 					players[i].swing = .16
+					players[i].erase("contact")
 					if i == 0:
 						toast = "未击中 · 看落点提前到位，再松键挥拍"
 						toast_time = 1.2
@@ -580,7 +589,7 @@ func _can_hit(i: int) -> bool:
 	var p = players[i]
 	if ball.y * (1 if i == 0 else -1) < .12: return false
 	var reach = 1.40 + (.28 if p.dash > 0 else 0.0)
-	return p.pos.distance_to(Vector2(ball.x, ball.y)) <= reach and ball.z >= .12 and ball.z <= 2.85 + p.jump
+	return p.pos.distance_to(Vector2(ball.x, ball.y)) <= reach and ball.z >= .12 and ball.z <= 2.85 + p.jump and ARENA_3D.ATHLETE_3D.can_reach(p,i,ball)
 
 func _try_hit(i: int, shot: int) -> bool:
 	if not _can_hit(i): return false
@@ -668,7 +677,9 @@ func _try_hit(i: int, shot: int) -> bool:
 					cross_t = -log(1.0 - fraction * (1.0 - exp(-DRAG * travel))) / DRAG
 					if ball.z + velocity.z * cross_t - .5 * G * cross_t * cross_t >= safety: break
 	last_speed = roundi(velocity.length() * 3.6)
-	p.stroke = "overhead" if shot==0 or smash else ("net" if shot==1 else ("lift" if shot==3 else "drive"))
+	# Animate the actual contact height: an overhead drop shares clear preparation,
+	# while a low defensive clear is lifted from below rather than hit above the head.
+	p.stroke = "overhead" if smash or (shot in [0,1] and ball.z>1.9) else ("net" if shot==1 else ("lift" if shot in [0,3] else "drive"))
 	FOOTWORK.hit(p,i,ball,serving)
 	if players[1-i].jump<=0: players[1-i].split = .18
 	p.shot = shot
@@ -963,6 +974,7 @@ func _view_sign() -> float:
 	return -1.0 if screen=="game" and _local_player_index()==1 else 1.0
 
 func _project(v: Vector3) -> Vector2:
+	if arena!=null: return arena.project(v,self)
 	v = Vector3(v.x*_view_sign(),v.y*_view_sign(),v.z)
 	if baseline_camera and screen != "menu":
 		# Intermediate baseline angle (~29 degrees), with a single height scale.
@@ -984,6 +996,9 @@ func _court_line(a: Vector2, b: Vector2, color: Color, width: float = 2.0) -> vo
 	draw_line(_floor(a), _floor(b), color, width * court_scale, true)
 
 func _draw_court() -> void:
+	if arena!=null:
+		draw_texture(arena.get_texture(),Vector2.ZERO)
+		return
 	# Low-lit arena terraces and an inset wooden apron.
 	for i in range(3):
 		var y = 194 + i*17
@@ -1016,6 +1031,7 @@ func _draw_court() -> void:
 	_center(badge, "B A D M I N T O N   /   A C E   C L U B", int(13*court_scale), MUTED)
 
 func _draw_net() -> void:
+	if arena!=null: return
 	var left = _project(Vector3(-3.2,0,1.55))
 	var right = _project(Vector3(3.2,0,1.55))
 	var lb = _project(Vector3(-3.2,0,.35))
@@ -1079,7 +1095,7 @@ func _draw_player(i: int) -> void:
 	if baseline_camera and screen != "menu": s = clampf((ground.y-_project(Vector3(p.pos.x,p.pos.y,1.8)).y)/92.0*1.35,.95,1.8)
 	if not baseline_camera and screen != "menu": s *= 1.2
 	var color = LIME if i == 0 else CORAL
-	ATHLETE.paint(self,p,i,ground,s,clock_time)
+	if arena==null: ATHLETE.paint(self,p,i,ground,s,clock_time)
 	if screen == "game":
 		_center(Vector2(ground.x,minf(826,ground.y+25*s)),"P1" if i == 0 else ("P2" if mode in ["local","online"] else "AI"),12,color)
 		if _can_hit(i) and phase == "rally": draw_arc(ground,27*s,0,TAU,36,Color(color,.7),2,true)
@@ -1121,6 +1137,7 @@ func _draw_shuttle() -> void:
 			trail_points.append(_project(ball_trail[k]))
 			trail_colors.append(Color(LIME,pow(1-k/float(ball_trail.size()),1.3)*.65))
 		draw_polyline_colors(trail_points,trail_colors,3.0*court_scale,true)
+	if arena!=null: return
 	var angle = (_project(ball+velocity*.02)-pos).angle()
 	if screen == "menu": angle = PI*.45
 	var fan = PackedVector2Array([pos+Vector2(-11,-6).rotated(angle)*court_scale,pos+Vector2(2,0).rotated(angle)*court_scale,pos+Vector2(-11,6).rotated(angle)*court_scale])

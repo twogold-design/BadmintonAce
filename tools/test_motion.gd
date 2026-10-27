@@ -2,6 +2,7 @@ extends SceneTree
 
 var game
 var checks = 0
+var failures = 0
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -9,8 +10,7 @@ func _initialize() -> void:
 func check(ok: bool, label: String) -> void:
 	if not ok:
 		push_error(label)
-		quit(1)
-		assert(false,label)
+		failures += 1
 	checks += 1
 
 func packet(t: float, hit: int = 1) -> Dictionary:
@@ -40,6 +40,7 @@ func _run() -> void:
 		var old_support: Vector2 = p.foot_r if old_leg==0 else p.foot_l
 		game._update_player(1,1.0/120,false)
 		check(not (p.lift_l>.001 and p.lift_r>.001),"ground movement keeps a support foot")
+		check(p.foot_l.x<p.foot_r.x,"sideways chasse never crosses the feet")
 		if old_leg>=0 and p.step_leg==old_leg:
 			var support: Vector2 = p.foot_r if old_leg==0 else p.foot_l
 			if support.distance_to(old_support)<.0001: planted_frames += 1
@@ -95,6 +96,38 @@ func _run() -> void:
 	remote.push(packet(1.02,2))
 	for frame in range(20): remote.render(game,1.0/60)
 	check(remote.shown_hit==2,"render timeline advances across a shot boundary")
+	var pose = game.ATHLETE.STROKE_POSE
+	var athlete: Dictionary = game.players[0].duplicate(true)
+	athlete.merge({"vel":Vector2.ZERO,"step":0.0,"swing":.48,"stroke":"overhead","backhand":false},true)
+	var contact = pose.sample(athlete,0)
+	var contact_hand: Vector2 = (pose.direction(contact[0],1)+pose.direction(contact[1],1))*16
+	check(contact_hand.y< -28,"overhead contact extends above the shoulder")
+	athlete.swing = .48-.18
+	var follow = pose.sample(athlete,0)
+	var follow_hand: Vector2 = (pose.direction(follow[0],1)+pose.direction(follow[1],1))*16
+	check(follow_hand.x< -15,"forehand follow-through crosses to the opposite side")
+	athlete.stroke = "net"
+	athlete.swing = .48
+	var net_contact = pose.sample(athlete,0)
+	athlete.swing = .48-.144
+	var net_follow = pose.sample(athlete,0)
+	check(absf(net_contact[2]-net_follow[2])<15,"net shot uses a short racket action")
+	for stroke in ["overhead","net","drive","lift","serve"]:
+		athlete.stroke = stroke
+		athlete.swing = .00001
+		var ending = pose.sample(athlete,0)
+		athlete.swing = 0.0
+		var ready = pose.sample(athlete,0)
+		check(absf(ending[0]-ready[0])+absf(ending[1]-ready[1])+absf(ending[2]-ready[2])<.01,"stroke returns continuously to ready: "+stroke)
+	var hip = Vector2(-6,-44)
+	var ankle = Vector2(-14,-5)
+	var knee: Vector2 = game.ATHLETE.knee(hip,ankle,Vector2(0,-.45),1)
+	check(knee.x>=minf(hip.x,ankle.x) and knee.x<=maxf(hip.x,ankle.x),"front-facing knee does not bow sideways")
+	if failures>0:
+		print("MOTION FAILED: ",failures," / ",checks)
+		game.queue_free()
+		quit(1)
+		return
 	print("MOTION / P2 VIEW PASS: ",checks," checks; planted frames=",planted_frames,"; prediction drift=",max_landing_drift)
 	game.queue_free()
 	quit(0)

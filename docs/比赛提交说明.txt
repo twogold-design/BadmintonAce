@@ -1,6 +1,6 @@
 谁是羽毛球高手 / BADMINTON ACE
 
-Godot 4.7.2 · WebGL 2 · 键盘操作 · 原创程序绘制美术与合成音效
+Godot 4.7.2 · WebGL 2 · 键盘操作 · 3D 骨骼角色与程序动作、合成音效
 
 提交文件：BadmintonAce-Web.zip，解压后根目录为 index.html。
 上传全部文件到比赛平台，入口选 index.html。公网托管使用 HTTPS，本机可使用 localhost HTTP；也支持在新版 Chrome / Edge 中直接双击本地 index.html。
@@ -38,4 +38,4 @@ Space 跳跃（配合 L 跳杀），左 Shift 蹬步救球，H 预计轨迹/落�
 
 字体：Noto Sans SC，SIL Open Font License 1.1，见 FONT-LICENSE.txt。
 引擎：Godot Engine，MIT License，见 GODOT-LICENSE.txt。
-游戏画面、人物、动作、音效均由本项目代码生成，无外部素材请求。
+角色基础网格及绑定来自 Quaternius CC0 Universal Base Characters，改制来源见 ATHLETE-LICENSE.txt。球场、球拍、程序动作和音效在工程内实现；游戏运行时不请求外部素材。

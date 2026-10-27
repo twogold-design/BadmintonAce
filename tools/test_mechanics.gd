@@ -2,6 +2,7 @@ extends SceneTree
 
 var game
 var checks = 0
+var failures = 0
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -9,8 +10,7 @@ func _initialize() -> void:
 func check(condition: bool, label: String) -> void:
 	if not condition:
 		push_error("FAIL: " + label)
-		quit(1)
-		assert(false, label)
+		failures += 1
 	checks += 1
 
 func _run() -> void:
@@ -25,6 +25,7 @@ func _run() -> void:
 		game.phase = "rally"
 		game.ball = Vector3(0,3,2.5)
 		game.players[0].pos = Vector2(0,3)
+		game.FOOTWORK.reset(game.players[0])
 		game.players[0].charge_time = .25
 		game.last_hit = 1
 		check(game._try_hit(0,shot),"shot accepted " + str(shot))
@@ -77,6 +78,7 @@ func _run() -> void:
 		game.phase = "rally"
 		game.ball = Vector3(0,3,2.5)
 		game.players[0].pos = Vector2(0,3)
+		game.FOOTWORK.reset(game.players[0])
 		game.players[0].charge_time = .25
 		game.last_hit = 1
 		check(game._try_hit(0,1),"automatic drop accepted")
@@ -101,4 +103,4 @@ func _run() -> void:
 	check(game._drop_target(0).x < 0,"automatic drop attacks open space")
 	print("MECHANICS PASS: ",checks," checks")
 	game.queue_free()
-	quit(0)
+	quit(1 if failures else 0)

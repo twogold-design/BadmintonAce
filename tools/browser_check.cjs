@@ -6,7 +6,7 @@ const {pathToFileURL} = require('node:url');
 (async()=>{
   const root=path.resolve(__dirname,'..');
   fs.mkdirSync(path.join(root,'artifacts'),{recursive:true});
-  const context=await chromium.launchPersistentContext(path.join(root,'.runtime','browser-test'),{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required','--disable-crash-reporter','--disable-breakpad']});
+  const context=await chromium.launchPersistentContext(path.join(root,'.runtime','browser-test'),{executablePath:process.env.ACE_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required','--disable-crash-reporter','--disable-breakpad']});
   const page=await context.newPage();
   const errors=[];
   page.on('console',m=>{if(m.type()==='error')errors.push(m.text()); console.log('BROWSER',m.text().slice(0,700));});

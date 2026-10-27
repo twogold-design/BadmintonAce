@@ -1,6 +1,6 @@
 # 谁是羽毛球高手
 
-Godot 4.7.2 制作的原创 2.5D 网页羽毛球游戏，支持单人 AI、练习和两台电脑的局域网 1v1。网页参赛包根目录包含 **index.html**，解压约 84.6 MB，低于 200 MB。项目、构建、缓存和测试文件均存放于本目录。
+Godot 4.7.2 制作的 3D 网页羽毛球游戏，支持单人 AI、练习和两台电脑的局域网 1v1。网页参赛包根目录包含 **index.html**，构建脚本会检查解压及压缩后均低于 200 MB。项目、构建、缓存和测试文件均存放于本目录。
 
 ## 从 GitHub 获取
 
@@ -8,22 +8,9 @@ Godot 4.7.2 制作的原创 2.5D 网页羽毛球游戏，支持单人 AI、练�
 
 GitHub 的 Code → Download ZIP 是源码包，需导出后才能打开网页入口。生成的 `build/`、`dist/`、服务器 EXE、依赖目录、缓存及玩家数据库不纳入源码版本管理。
 
-开发时用 Godot 4.7.2 打开 `project.godot`。现有 Windows 脚本使用 `D:\tools\Godot-4.7.2` 和 `D:\tools\nodejs2\node.exe`；不同安装位置请修改 `tools/build.ps1` 及编辑器启动脚本。在工程目录执行以下步骤，临时文件和缓存保留在工程内：
+开发时用 Godot 4.7.2 打开 `project.godot`。可直接编辑的新角色 `.blend`、运行时 `.glb`、原始网格、纹理、授权与重建脚本均包含在仓库中。协作分工、安装、测试和重新导出步骤见 [协作开发指南](CONTRIBUTING.md)。常规游戏开发不需要安装 Blender。
 
-```powershell
-$env:APPDATA="$PWD\.runtime\roaming"
-$env:LOCALAPPDATA="$PWD\.runtime\local"
-$env:TEMP="$PWD\.runtime\temp"
-$env:TMP=$env:TEMP
-$env:npm_config_cache="$PWD\.runtime\npm-cache"
-New-Item -ItemType Directory -Force $env:APPDATA,$env:LOCALAPPDATA,$env:TEMP | Out-Null
-npm --prefix server ci
-npm --prefix tools ci
-python tools/fetch_templates.py
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
-```
-
-以上需要 Node.js 24、Python 3 和对应 Godot 引擎；Node/npm、Python 应可在命令行调用。模板脚本会把 Web 导出模板放入工程的 `.runtime` 目录。使用 `node tools/build_server.cjs` 构建 Windows 服务器 EXE，再运行 `python tools/package_server.py` 生成主机部署包。只运行源码服务器时可用 `node server/server.js`。
+Windows 工具路径可用 `GODOT_BIN`、`NODE_BIN`、`ACE_BROWSER` 环境变量指定，也支持从 PATH 查找。先运行 `tools/environment.ps1`，缓存、临时文件和依赖下载均留在项目的 `.runtime` 中。
 
 ## 开始游戏
 
@@ -46,7 +33,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 
 ## 角色选择
 
-主菜单点“角色 · 男 / 女”，或在线对战页点“我的角色 / 更换”，查看男女角色的正面与背面预览，直接点击对应角色卡片进行选择。选择自动保存，单人、练习和在线对战均生效，联机双方同步各自角色。女性角色有高马尾、无袖运动球衣、运动裙裤和随动作摆动的发梢。男女速度、体力、跳跃与击球范围相同，只改变外观。单人陪练使用另一款角色。
+主菜单点“角色 · 男 / 女”，或在线对战页点“我的角色 / 更换”，查看男女角色的正面与背面预览，直接点击对应角色卡片进行选择。选择自动保存，单人、练习和在线对战均生效，联机双方同步各自角色。女性角色有清爽高马尾、短袖运动球衣、运动短裤和随动作摆动的发梢。男女速度、体力、跳跃与击球范围相同，只改变外观。单人陪练使用另一款角色。
 
 ## 操作与视角
 
@@ -63,7 +50,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 | 底线视角 / 俯视视角 | C |
 | 暂停 / 操作指南 | Esc |
 
-默认使用适度抬高的底线透视视角，球场扩大呈现，两侧大信息栏收为顶部小面板，操作提示集中在底部，近场角色背对镜头，远场角色面向球网。高球在画面中适当压缩高度，避免被比分栏遮住；物理飞行不受影响。实线尾迹表示已飞过的路线，细弧线表示未被拦截时的预计路线，落点圈帮助判断接球位置，不显示落地时间。对手回球后预测会重新计算，预计轨迹不保证来球一定能过网。H 关闭预测辅助后仍保留球尾迹。
+默认使用适度抬高的底线透视视角，操作提示集中在底部，近场角色背对镜头，远场角色面向球网。球、角色和场地使用同一台真实 3D 相机投影，普通回球的高度范围已做可视性检查。实线尾迹表示已飞过的路线，细弧线表示未被拦截时的预计路线，落点圈帮助判断接球位置，不显示落地时间。对手回球后预测会重新计算，预计轨迹不保证来球一定能过网。H 关闭预测辅助后仍保留球尾迹。
 
 **按住蓄力，松开挥拍。** 可轻点接球，不需要每球长蓄力。脚下亮环表示进入击球范围；靠近球并短蓄力 0.1–0.5 秒可打中甜区。松键后有 0.36 秒输入缓冲；站位接近且松开方向时会小幅补步接球，手动移动始终优先，远球仍需跑位或蹬步。移动时有支撑脚落地、小步调整、侧向并步与后退步；网前球和蹬步表现为持拍脚跨步。高远和杀球蓄力时前后错步侧身，击球后髋部先转、肩部随转，并表现重心转移与回正；跳跃高点挥拍带剪式换脚及落地缓冲。男女角色和 AI 使用相同的程序动作。
 
@@ -73,19 +60,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 
 ## 规则与范围
 
+动作已按真人教学顺序重新组织：肩、肘和球拍分开运动，头顶击球后跨身随挥，再平滑回到准备姿势；膝盖朝脚尖方向弯曲，并步不交叉。高位吊球与网前球采用不同动作。参考资料和实现范围见 [动作参考与实现](docs/动作参考与实现.md)，[3D 动作分解图](artifacts/motion-reference-sheet.png)。
+
 单打内边线，落地得分，下网 / 出界失分。赢球方发球，随得分奇偶交换左右发球区。11 分制领先 2 分获胜、15 分封顶；21 分制领先 2 分、30 分封顶。AI 有三档难度。
 
-这是偏街机操作的原创程序动画游戏，未使用动作捕捉或 Pure Badminton 素材。比赛规则简化为单局决胜，没有挑战、交换场地或正式多局赛制。排行榜为休闲战绩，未实现账号系统、断线续局或竞技级反作弊。
+这是偏街机操作的程序动画游戏，未使用动作捕捉或 Pure Badminton 素材。比赛规则简化为单局决胜，没有挑战、交换场地或正式多局赛制。排行榜为休闲战绩，未实现账号系统、断线续局或竞技级反作弊。
 
 ## 发布与开发
 
 - `dist/BadmintonAce-Web.zip`：网页参赛包，入口 index.html。
 - `dist/BadmintonAce-Server.zip`：主机部署包，包含独立 Windows EXE、网页及使用说明，不包含玩家数据。
-- `project.godot`：源工程；`打开Godot编辑器.cmd` 使用 D 盘指定引擎，并将缓存重定向到项目目录。
+- `project.godot`：源工程；`打开Godot编辑器.cmd` 使用可配置的引擎路径，并将缓存重定向到项目目录。
 - `重新导出网页版.cmd`：导出、加入本地双击支持、压缩并校验 200 MB 上限。
 - `dist/manifest.json`：发布文件体积与 SHA-256；`artifacts/验证记录.md`：实际验证及限制。
 - `local-data.js` 仅在本地 file: 模式读取，网站托管不重复下载。
 
 当前仅提供局域网服务，没有部署公网入口。普通内网 HTTP 游戏页不满足安全上下文要求，其他电脑应使用完整本地游戏包。未来如需公网服务，见 `docs/部署与邀请.md`；需要明确配置 `LAN_ONLY=0` 和 HTTPS/WSS，不能直接把内网地址发给异地玩家。
 
-美术和音效由本项目代码生成；字体许可见 `assets/FONT-LICENSE.txt`，Godot 许可见 `docs/GODOT-LICENSE.txt`，服务端 Node.js 及其第三方许可见 `docs/NODE-LICENSE.txt`。
+角色基础网格、绑定与部分发型来自 Quaternius 的 CC0 Universal Base Characters，已改为运动员体型、运动服和清爽马尾；见 [角色来源与重建](assets/athletes/README.md)。球场、球拍、运动服着色、马尾网格、程序动作与合成音效由本工程实现；字体许可见 `assets/FONT-LICENSE.txt`，Godot 许可见 `docs/GODOT-LICENSE.txt`，服务端 Node.js 及其第三方许可见 `docs/NODE-LICENSE.txt`。

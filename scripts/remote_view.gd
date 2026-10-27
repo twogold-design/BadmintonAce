@@ -64,6 +64,8 @@ func render(game: Node2D, dt: float) -> void:
 		p.swing = lerpf(float(pa.swing),float(pb.swing),blend) if a.hits==b.hits else float(pa.swing)
 		for key in ["stroke","shot","charge","backhand"]: p[key] = pa[key]
 		var ma: Dictionary = pa.get("motion",{})
+		if ma.has("contact"): p.contact = Vector3(float(ma.contact[0]),float(ma.contact[1]),float(ma.contact[2]))
+		else: p.erase("contact")
 		var mb: Dictionary = pb.get("motion",ma)
 		if ma.has("left") and mb.has("left"):
 			p.foot_l = vector(ma.left).lerp(vector(mb.left),blend)

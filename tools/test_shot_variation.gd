@@ -18,6 +18,7 @@ func hit(i: int, shot: int, height: float, aim: Vector2 = Vector2.ZERO) -> Vecto
 	game.phase = "rally"
 	game.ball = Vector3(0,3*side,height)
 	game.players[i].pos = Vector2(0,3*side)
+	game.FOOTWORK.reset(game.players[i])
 	game.players[i].aim = Vector2.ZERO
 	game.players[i].shot_aim = aim
 	game.players[i].charge_time = .25

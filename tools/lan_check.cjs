@@ -15,7 +15,7 @@ async function fill(p,x,y,value){await p.mouse.click(x,y);await p.waitForTimeout
  const service=spawn(path.join(root,'BadmintonAce-Server.exe'),[],{cwd:root,windowsHide:true,env:{...process.env,PORT:port,DATA_DIR:path.join(root,'.runtime','lan-exe-test-data')},stdio:['ignore','pipe','inherit']});
  try{
   await new Promise((resolve,reject)=>{service.once('error',reject);service.once('exit',code=>reject(Error('EXE exited: '+code)));service.stdout.once('data',resolve)});
-  for(let i=0;i<2;i++)contexts.push(await chromium.launchPersistentContext(path.join(root,'.runtime','lan-file-'+i),{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--enable-unsafe-swiftshader','--disable-crash-reporter','--disable-breakpad']}));
+  for(let i=0;i<2;i++)contexts.push(await chromium.launchPersistentContext(path.join(root,'.runtime','lan-file-'+i),{executablePath:process.env.ACE_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--enable-unsafe-swiftshader','--disable-crash-reporter','--disable-breakpad']}));
   const pages=await Promise.all(contexts.map(c=>c.newPage()));
   for(const p of pages)await p.addInitScript(value=>Object.defineProperty(window,'ACE_SERVER',{get:()=>value,set:()=>{}}),address);
   for(const p of pages){p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});}

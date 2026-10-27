@@ -2,6 +2,7 @@ extends SceneTree
 
 var game
 var checks = 0
+var failures = 0
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -9,8 +10,7 @@ func _initialize() -> void:
 func check(value: bool, label: String) -> void:
 	if not value:
 		push_error("FAIL: " + label)
-		quit(1)
-		assert(false,label)
+		failures += 1
 	checks += 1
 
 func release_shot() -> void:
@@ -26,6 +26,7 @@ func setup_rally() -> void:
 	game.phase = "rally"
 	game.last_hit = 1
 	game.players[0].pos = Vector2(0,3)
+	game.FOOTWORK.reset(game.players[0])
 
 func _run() -> void:
 	game = load("res://main.tscn").instantiate()
@@ -82,7 +83,7 @@ func _run() -> void:
 		setup_rally()
 		game.ball = Vector3(0,3,2.5)
 		check(game._try_hit(0,shot),"shot accepted")
-		check(game.players[0].stroke == ["overhead","net","overhead","lift"][shot],"shot-specific animation")
+		check(game.players[0].stroke == ["overhead","overhead","overhead","lift"][shot],"shot and contact height select animation")
 		for tick in range(300):
 			if game.phase != "rally": break
 			var projected = game._project(game.ball)
@@ -92,12 +93,14 @@ func _run() -> void:
 	game.ball = Vector3(0,3,1.5)
 	game._try_hit(0,2)
 	check(game.players[0].stroke == "drive","low L uses drive animation")
+	# True camera projection must agree with the world, including off-screen extreme heights.
 	for side in [-6.7,0.0,6.7]:
-		check(game._project(Vector3(0,side,12 )).y > 110,"exceptionally high shuttle remains below scoreboard")
+		var expected: Vector2 = game.arena.camera.unproject_position(Vector3(0,12,side))
+		check(game._project(Vector3(0,side,12)).distance_to(expected)<.001,"3D projection never distorts physical height")
 	check(game._floor(Vector2(0,6.7)).y > game._floor(Vector2(0,-6.7)).y,"near/far orientation retained")
 	var baseline_far = game._floor(Vector2(0,-6.7))
 	game.baseline_camera = false
 	check(game._floor(Vector2(0,-6.7)).y < baseline_far.y,"baseline view is lower than original overhead view")
-	print("CONTROLS / CAMERA PASS: ",checks," checks")
+	print("CONTROLS / CAMERA: ",checks," checks; ",failures," failures")
 	game.queue_free()
-	quit(0)
+	quit(1 if failures else 0)

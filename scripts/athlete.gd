@@ -1,5 +1,6 @@
 extends RefCounted
 ## Articulated, shaded vector athletes; the local player faces away from the camera.
+const STROKE_POSE = preload("res://scripts/stroke_pose.gd")
 
 static func oval(c: Node2D, at: Vector2, radius: Vector2, color: Color, angle: float = 0.0) -> void:
 	var points = PackedVector2Array()
@@ -71,14 +72,14 @@ static func paint(c: Node2D, p: Dictionary, index: int, ground: Vector2, s: floa
 	var progress: float = clampf(1-p.swing/.48,0,1)
 	var follow: float = sin(progress*PI) if p.swing>0 else 0.0
 	var ready = p.charge>=0 or p.buffer>0
-	var lean: float = p.vel.x*view_sign*1.4 + follow*hand_side*(7 if stroke=="overhead" else 4)
+	var lean: float = p.vel.x*view_sign*.65 + follow*hand_side*2.0
 	var tuck: float = minf(1,jump)*7
 	var pos = ground-Vector2(0,jump*55*s)
-	var split_crouch = sin(clampf(float(p.get("split",0))/.18,0,1)*PI)*4 if in_match else 0.0
-	var crouch: float = split_crouch + lunge*5 + sin(clampf(float(p.get("landing",0))/.18,0,1)*PI)*6 + (2.5 if ready else 0)
-	var bob = absf(stride2)*1.2*speed + breath-crouch
-	var hips = pos + Vector2(lean*.25,-36-bob+lunge*6)*s
-	var chest = pos + Vector2(lean,-64-bob+lunge*11)*s
+	var split_crouch = sin(clampf(float(p.get("split",0))/.18,0,1)*PI)*2 if in_match else 0.0
+	var crouch: float = split_crouch + lunge*5 + sin(clampf(float(p.get("landing",0))/.18,0,1)*PI)*3 + (1.0 if ready else 0)
+	var bob = absf(stride2)*.55*speed + breath*.45-crouch
+	var hips = pos + Vector2(lean*.5,-44-bob)*s
+	var chest = pos + Vector2(lean,-72-bob)*s
 	chest.x += sin(turn)*4*s
 	var head = chest + Vector2(lean*.16,-20)*s
 	var hair_sway: float = sin(time*4.5+float(p.step))*3 + p.vel.x*1.1 + follow*hand_side*5
@@ -92,12 +93,17 @@ static func paint(c: Node2D, p: Dictionary, index: int, ground: Vector2, s: floa
 		var right_world: Vector2 = p.foot_r if view_sign>0 else p.foot_l
 		var left_lift: float = p.lift_l if view_sign>0 else p.lift_r
 		var right_lift: float = p.lift_r if view_sign>0 else p.lift_l
-		foot_l = c._floor(left_world)-Vector2(0,jump*55*s+left_lift*75*s)
-		foot_r = c._floor(right_world)-Vector2(0,jump*55*s+right_lift*75*s)
+		# Court projection has exaggerated depth relative to these stylised athletes.
+		# Keep the pose within human reach rather than stretching a leg across the court.
+		foot_l = pos+(c._floor(left_world)-ground)*.72-Vector2(0,left_lift*65*s)
+		foot_r = pos+(c._floor(right_world)-ground)*.72-Vector2(0,right_lift*65*s)
+		foot_l = pos+(foot_l-pos).limit_length(29*s)
+		foot_r = pos+(foot_r-pos).limit_length(29*s)
 	var hip_l = body_point(hips,Vector2(-6,0),s,hip_turn)
 	var hip_r = body_point(hips,Vector2(6,0),s,hip_turn)
-	var knee_l = knee(hip_l,foot_l-Vector2(0,5)*s,17*s,18*s,-1)
-	var knee_r = knee(hip_r,foot_r-Vector2(0,5)*s,17*s,18*s,1)
+	var forward = Vector2(sin(hip_turn)*.6,-.45 if back else .45)
+	var knee_l = knee(hip_l,foot_l-Vector2(0,5)*s,forward,s)
+	var knee_r = knee(hip_r,foot_r-Vector2(0,5)*s,forward,s)
 	# Contact shadow / ambient occlusion, separate from the airborne body.
 	oval(c,ground,Vector2(29,8)*s,Color(0,0,0,.12))
 	oval(c,ground,Vector2(22,5.5)*s,Color(0,0,0,.20))
@@ -125,12 +131,11 @@ static func paint(c: Node2D, p: Dictionary, index: int, ground: Vector2, s: floa
 		for fold in [-1,0,1]:
 			c.draw_line(body_point(hips,Vector2(fold*7,1),s,hip_turn),body_point(hips,Vector2(fold*12+hem_sway,15),s,hip_turn),Color("365666"),1*s,true)
 	# Non-racket arm balances the stroke; on the back view it is behind the torso.
+	var preparation = float(p.get("preparation",0)) if in_match else 0.0
+	var pose = STROKE_POSE.sample(p,preparation)
 	var free_shoulder = body_point(chest,Vector2(-hand_side*13,3),s,turn)
-	var free_elbow = body_point(chest,Vector2(-hand_side*(23+lunge*4),17-stride*3*speed),s,turn)
-	var free_hand = body_point(chest,Vector2(-hand_side*26,24-stride*5*speed),s,turn)
-	if (ready and int(p.charge) in [0,2]) or (p.swing>.20 and stroke=="overhead"):
-		free_elbow = body_point(chest,Vector2(-hand_side*22,-8),s,turn)
-		free_hand = body_point(chest,Vector2(-hand_side*18,-20),s,turn)
+	var free_elbow = body_point(free_shoulder,STROKE_POSE.direction(pose[3],hand_side)*16,s,turn*.4)
+	var free_hand = body_point(free_elbow,STROKE_POSE.direction(pose[4],hand_side)*15,s,turn*.4)
 	segment(c,free_shoulder,free_elbow,4.5*s*limb_scale,3.6*s*limb_scale,shade)
 	segment(c,free_elbow,free_hand,3.6*s*limb_scale,2.8*s*limb_scale,skin)
 	oval(c,free_hand,Vector2(3.3,4)*s,skin)
@@ -161,29 +166,9 @@ static func paint(c: Node2D, p: Dictionary, index: int, ground: Vector2, s: floa
 		c.draw_circle(body_point(chest,Vector2(-7,5),s,turn),2*s,Color("f6e6c6"))
 	# Right-handed athlete: the far player's racket is on screen-left.
 	var shoulder = body_point(chest,Vector2(hand_side*14,3),s,turn)
-	var elbow = body_point(chest,Vector2(hand_side*23,13),s,turn)
-	var hand = body_point(chest,Vector2(hand_side*29,7),s,turn)
-	var angle = -.90 if back else -2.24
-	if ready:
-		var overhead_ready = int(p.charge) in [0,2] or (p.buffer>0 and int(p.shot) in [0,2])
-		elbow = body_point(chest,Vector2(hand_side*23,-8 if overhead_ready else 17),s,turn)
-		hand = body_point(chest,Vector2(hand_side*17,-23 if overhead_ready else 24),s,turn)
-		angle = -1.7-hand_side*.35 if overhead_ready else -.3*hand_side
-	if p.swing > 0:
-		var t: float = progress
-		var sweep = 1.0-pow(1.0-t,2.4)
-		var swing = lerpf(-1.65,.95,sweep)
-		if stroke=="serve": swing = lerpf(.6,-1.0,sweep)
-		elif stroke=="net": swing = lerpf(-.35,-1.05,sweep)
-		elif stroke=="lift": swing = lerpf(.65,-1.5,sweep)
-		elif stroke=="drive": swing = lerpf(-.4,.45,sweep)
-		angle = swing if back else PI-swing
-		if p.backhand: angle = PI-angle
-		hand = shoulder+Vector2.from_angle(angle)*29*s
-		elbow = shoulder+Vector2.from_angle(angle-hand_side*.4)*16*s
-		if t < .65:
-			c.draw_arc(shoulder,55*s,angle-.34,angle+.34,24,Color(accent,.20),6*s,true)
-			c.draw_arc(shoulder,55*s,angle-.22,angle+.22,20,Color(accent,.55),2*s,true)
+	var elbow = body_point(shoulder,STROKE_POSE.direction(pose[0],hand_side)*16,s,turn*.4)
+	var hand = body_point(elbow,STROKE_POSE.direction(pose[1],hand_side)*16,s,turn*.4)
+	var angle = STROKE_POSE.direction(pose[2],hand_side).angle()
 	segment(c,shoulder,elbow,4.6*s*limb_scale,3.5*s*limb_scale,skin)
 	segment(c,elbow,hand,3.7*s*limb_scale,2.7*s*limb_scale,skin)
 	var wrist = hand.lerp(elbow,.16)
@@ -239,14 +224,8 @@ static func ponytail(c: Node2D, head: Vector2, s: float, sway: float, accent: Co
 static func body_point(origin: Vector2, offset: Vector2, scale: float, yaw: float) -> Vector2:
 	return origin+Vector2(offset.x*cos(yaw),offset.y+offset.x*sin(yaw)*.4)*scale
 
-static func knee(hip: Vector2, ankle: Vector2, upper: float, lower: float, bend: float) -> Vector2:
-	var delta = ankle-hip
-	# Perspective changes projected leg length; keep a soft knee on long steps.
-	var stretch = maxf(1.0,delta.length()/(upper+lower)*1.025)
-	upper *= stretch
-	lower *= stretch
-	var distance = clampf(delta.length(),.01,upper+lower-.01)
-	var axis = delta.normalized()
-	var along = (upper*upper-lower*lower+distance*distance)/(2*distance)
-	var height = sqrt(maxf(0,upper*upper-along*along))
-	return hip+axis*along+axis.orthogonal()*height*bend
+static func knee(hip: Vector2, ankle: Vector2, forward: Vector2, scale: float) -> Vector2:
+	# A knee flexes towards the toes, not laterally away from the other leg.
+	# Foreshortening hides most of the bend in a baseline camera.
+	var flex = clampf((45*scale-hip.distance_to(ankle))*.45,1.0*scale,7.0*scale)
+	return hip.lerp(ankle,.52)+forward*flex

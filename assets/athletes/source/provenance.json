@@ -1,0 +1,33 @@
+{
+  "creator": "Quaternius",
+  "license": "CC0-1.0",
+  "official": "https://quaternius.com/packs/universalbasecharacters.html",
+  "mirror": "https://raw.githubusercontent.com/OpenAgentsInc/openagents/main/assets/verse/characters/quaternius/",
+  "files": {
+    "base-license.txt": "c232257c8a2545520aa120cda96acb23d00a355d2e3339cba20b7ebf56f28a09",
+    "base/Superhero_Female_FullBody.bin": "3a8220a485b33d05d879115a50697728b45a151781106033afb8b8c243fca208",
+    "base/Superhero_Female_FullBody.gltf": "11c4a8574040816929e892530a4b72f13caab91ce3e320c1f00657eb3b6bf939",
+    "base/Superhero_Male_FullBody.bin": "459003f9745853ae562a85506a2b94dd56515c1f37728f9fa3d2ce1a3e4cd92f",
+    "base/Superhero_Male_FullBody.gltf": "7a381b765b95551424cb5bb2c31e6f02e08b9552f91ec65e573257a199364b66",
+    "hair/Eyebrows_Female.bin": "7a450832ca276c3d8299acaf78cd83c53b4290d79375c85266286ef617932e46",
+    "hair/Eyebrows_Female.gltf": "dcb943d052146bd17ea786287395f320adb8dc15865d6b77d78905dd3786e7bb",
+    "hair/Eyebrows_Regular.bin": "11b8092c27f17b329210d057eb69019d73130154b45a396b32801975099ffdf5",
+    "hair/Eyebrows_Regular.gltf": "d93d1ac5332fefebacd210fb3917ad5c1cb1052f5c19528d6c582811dec84495",
+    "hair/Hair_Buns.bin": "811606cc84f0bfdefa2e6f1396f3d94c35138308a96d78a4f447b2e7dfc6ed6c",
+    "hair/Hair_Buns.gltf": "767c5e00ff929175f6c6951de29a6526eaabb21516ec3c8efcec30cd6d63a641",
+    "hair/Hair_SimpleParted.bin": "ecd7c81959f3985d6254458a440daaaa18a8bfbb1dbe111c68a04a72374d54db",
+    "hair/Hair_SimpleParted.gltf": "1004b8644d0b6de81d76b3c2c872e693a382764def403ca4a254552200c157dd",
+    "textures/172f230aae0d4366c3cfc0402b2e6d1811b11f8487344bff28605eeacac1558d.png": "172f230aae0d4366c3cfc0402b2e6d1811b11f8487344bff28605eeacac1558d",
+    "textures/57fd0ad8c96a4d01b38769637e066cecaa285b456f6e48ce00863754a457affb.png": "57fd0ad8c96a4d01b38769637e066cecaa285b456f6e48ce00863754a457affb",
+    "textures/9b25cf9200216eb754b79cf4c63b5380c419780788322f3c57cdd2b3e02679a6.png": "9b25cf9200216eb754b79cf4c63b5380c419780788322f3c57cdd2b3e02679a6",
+    "textures/9ed61f7726a54fe346a78b9e5a18905d8e2b88f86235d97f53cd207a26f3f8c7.png": "9ed61f7726a54fe346a78b9e5a18905d8e2b88f86235d97f53cd207a26f3f8c7",
+    "textures/bc7aa863bd22ab0a995cd838cceb4d3a5186ee54ee2fb0108fad85d20c057e6e.png": "bc7aa863bd22ab0a995cd838cceb4d3a5186ee54ee2fb0108fad85d20c057e6e",
+    "textures/c70dabf48574cda55644d556beae1ee7cf1bdcf68a50d259d20f2f2358f27991.png": "c70dabf48574cda55644d556beae1ee7cf1bdcf68a50d259d20f2f2358f27991",
+    "textures/cf922460b43ccd31e983e34db05514c9d451dd2f9cdd01a843978e797719f859.png": "cf922460b43ccd31e983e34db05514c9d451dd2f9cdd01a843978e797719f859",
+    "textures/d08e3356a83211bc6ca21fe3a8e39f4b5c1a3b8f85457fc2c0fb57be09935025.png": "d08e3356a83211bc6ca21fe3a8e39f4b5c1a3b8f85457fc2c0fb57be09935025",
+    "textures/d2beabf2bd0313e32c68dcdbb80dca371a6e994fabf96efa97128bf9f14fa57b.png": "d2beabf2bd0313e32c68dcdbb80dca371a6e994fabf96efa97128bf9f14fa57b",
+    "textures/d366843ee7d9e9f37ec87a0e1c98c7f2e45573c08eeb80a51a6d9344e68cf288.png": "d366843ee7d9e9f37ec87a0e1c98c7f2e45573c08eeb80a51a6d9344e68cf288",
+    "textures/df680cbc1967a61e85998bfafb8f7bc0a36dd604bb3266486c4b06b1a184bb45.png": "df680cbc1967a61e85998bfafb8f7bc0a36dd604bb3266486c4b06b1a184bb45",
+    "textures/f9f4f2fb3eeeefb0b6f0fdef38b0770fd6607640c1c680b8139dd76697e9f9b3.png": "f9f4f2fb3eeeefb0b6f0fdef38b0770fd6607640c1c680b8139dd76697e9f9b3"
+  }
+}

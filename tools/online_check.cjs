@@ -12,7 +12,7 @@ async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);awai
  const errors=[];
  const contexts=[];
  try{
- for(let i=0;i<2;i++)contexts.push(await chromium.launchPersistentContext(path.join(root,'.runtime','online-'+i),{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--no-sandbox','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required','--disable-crash-reporter','--disable-breakpad']}));
+ for(let i=0;i<2;i++)contexts.push(await chromium.launchPersistentContext(path.join(root,'.runtime','online-'+i),{executablePath:process.env.ACE_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--no-sandbox','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required','--disable-crash-reporter','--disable-breakpad']}));
  const pages=await Promise.all(contexts.map(c=>c.newPage()));
  for(const [i,p] of pages.entries()){p.on('console',m=>{if(m.type()==='error'){errors.push(i+': '+m.text());console.log('ERROR',i,m.text())}});p.on('pageerror',e=>errors.push(i+': '+e.message));}
  await Promise.all(pages.map(p=>p.goto(base)));
