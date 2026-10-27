@@ -1,6 +1,6 @@
 # 3D 运动员源文件
 
-运行时使用 male.glb、female.glb 与对应 *-rig.json。男女保留原始完整人体骨架，女生额外有 ponytail 骨骼。清爽马尾网格、发圈、运动鞋、运动服和羽毛球程序动作在本工程制作。MatchTShirt 是独立、连续的合身短袖网格，与人体共享骨架；圆领、短袖、正常衣长，保留少量活动余量。不是把人体表面直接涂成球衣。
+运行时使用 male.glb、female.glb 与对应 *-rig.json。男女保留原始完整人体骨架，女生额外有 ponytail 骨骼。清爽马尾网格、发圈、运动鞋、运动服和羽毛球程序动作在本工程制作。MatchTShirt 是独立、连续的合身短袖网格，与人体共享骨架；圆领、短袖、正常衣长，保留少量活动余量。胸、腰、髋分别裁形，减少统一截面造成的鼓胀；布面细分后男款 14564、女款 15516 顶点，内侧厚度 1.5 毫米，腰侧有轻微布褶。不是把人体表面直接涂成球衣。
 
 基础人体、面部纹理、原始绑定、头皮和短发来自 Quaternius Universal Base Characters，CC0-1.0。官方页面：https://quaternius.com/packs/universalbasecharacters.html 。免费 Standard 资源的来源镜像及下载文件哈希记录在 source/provenance.json，许可原文见 source/base-license.txt。本项目没有使用付费 Pro/Source 包或其他游戏的角色。
 

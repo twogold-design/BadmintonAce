@@ -33,6 +33,22 @@ def regular_jersey(body,rig,female,cloth):
  hem=.950 if female else .970
  cuff=abs(shoulder.x)+.125
  def collar(x):return neck-.018+.070*smoothstep(.025,.110,abs(x))
+ # Tailor each height to the actual athlete: the previous almost-constant
+ # ellipse added too much depth and made the shirt look inflated.
+ sections=([
+  (hem,.196,.103,.165),(1.06,.173,.108,.139),(1.17,.149,.114,.104),
+  (1.28,.157,.119,.113),(1.37,.164,.120,.132)
+ ] if female else [
+  (hem,.183,.115,.158),(1.08,.174,.116,.135),(1.18,.177,.123,.117),
+  (1.30,.193,.139,.146),(1.40,.211,.130,.161)
+ ])
+ def section(z):
+  if z<=sections[0][0]:return sections[0][1:]
+  for a,b in zip(sections,sections[1:]):
+   if z<=b[0]:
+    t=smoothstep(a[0],b[0],z)
+    return tuple(a[k]+(b[k]-a[k])*t for k in range(1,4))
+  return sections[-1][1:]
  bm=bmesh.new();bm.from_mesh(shirt.data)
  bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00002)
  def cut(point,normal):
@@ -48,24 +64,20 @@ def regular_jersey(body,rig,female,cloth):
  for v in bm.verts:v.co.z+=collar(v.co.x)
  bm.normal_update()
  for v in bm.verts:
-  original=v.co.copy();x,y,z=original;side=1 if x>=0 else -1
-  base=original+v.normal*.007
+  original=v.co.copy();x,y,z=original
+  base=original+v.normal*.004
   torso=(1-smoothstep(shoulder.z-.035,shoulder.z+.060,z))*(1-smoothstep(abs(shoulder.x)-.015,abs(shoulder.x)+.065,abs(x)))
   angle=math.atan2(y+.012,x)
   # Mildly tapered side seams and a smooth front: enough ease to move without
   # tracing individual muscles or making an oversized, flared garment.
-  height=smoothstep(hem,shoulder.z-.10,z)
-  waist_ease=math.sin(math.pi*height)
-  width=(.198 if female else .207)-(.021 if female else .016)*waist_ease
-  depth=(.151 if female else .165)-.012*waist_ease
-  if y>-.012:depth+=.015*(1-height)
-  fold=.0012*math.sin(angle*7+z*9)*(1-height)
-  drape=Vector(((width+fold)*math.cos(angle),-.012+(depth+fold)*math.sin(angle),z))
+  width,front,back=section(z)
+  depth=back if y>-.012 else front
+  drape=Vector((width*math.cos(angle),-.012+depth*math.sin(angle),z))
   base=base.lerp(drape,torso)
   sleeve=smoothstep(abs(shoulder.x)-.005,abs(shoulder.x)+.075,abs(x))
   radial=Vector((0,y-shoulder.y,z-shoulder.z))
   if radial.length>.0001:
-   sleeve_point=original+radial.normalized()*.012
+   sleeve_point=original+radial.normalized()*.006
    base=base.lerp(sleeve_point,sleeve)
   v.co=base
  # Extend the waist as complete fabric rings. This makes a clean, continuous
@@ -76,19 +88,13 @@ def regular_jersey(body,rig,female,cloth):
   z=lower_seam+(hem-lower_seam)*ring/6
   result=bmesh.ops.extrude_edge_only(bm,edges=lower_edges)
   new_vertices=[item for item in result['geom'] if isinstance(item,bmesh.types.BMVert)]
-  height=smoothstep(hem,shoulder.z-.10,z);waist_ease=math.sin(math.pi*height)
-  width=(.198 if female else .207)-(.021 if female else .016)*waist_ease
+  width,front,back=section(z)
   for v in new_vertices:
-   angle=math.atan2(v.co.y+.012,v.co.x)
    # Preserve the angle on an ellipse, rather than accumulating radial drift.
-   previous_height=smoothstep(hem,shoulder.z-.10,v.co.z)
-   previous_ease=math.sin(math.pi*previous_height)
-   previous_width=(.198 if female else .207)-(.021 if female else .016)*previous_ease
-   previous_depth=(.151 if female else .165)-.012*previous_ease
-   if v.co.y>-.012:previous_depth+=.015*(1-previous_height)
+   previous_width,previous_front,previous_back=section(v.co.z)
+   previous_depth=previous_back if v.co.y>-.012 else previous_front
    angle=math.atan2((v.co.y+.012)/previous_depth,v.co.x/previous_width)
-   depth=(.151 if female else .165)-.012*waist_ease
-   if math.sin(angle)>0:depth+=.015*(1-height)
+   depth=back if math.sin(angle)>0 else front
    v.co=Vector((width*math.cos(angle),-.012+depth*math.sin(angle),z))
   new_set=set(new_vertices)
   lower_edges=[edge for edge in bm.edges if edge.is_boundary and all(v in new_set for v in edge.verts)]
@@ -111,12 +117,23 @@ def regular_jersey(body,rig,female,cloth):
  bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(shirt.data);bm.free()
  shirt.data.materials.clear();shirt.data.materials.append(cloth)
  for polygon in shirt.data.polygons:polygon.material_index=0;polygon.use_smooth=True
+ # Four times the surface faces, smoothly interpolated weights and clean
+ # collar/cuff silhouettes. Subdivide before fabric thickness, not after it.
+ subdivision=shirt.modifiers.new('Fine garment surface','SUBSURF')
+ subdivision.subdivision_type='CATMULL_CLARK';subdivision.levels=1;subdivision.render_levels=1
+ apply(shirt,subdivision)
+ for v in shirt.data.vertices:
+  x,y,z=v.co
+  if z<1.28 and abs(x)<.23:
+   # Small vertical fabric folds near the side seams; no large radial bulges.
+   edge=smoothstep(.04,.16,abs(x));fade=1-smoothstep(1.12,1.28,z)
+   v.co.y+=(1 if y>-.012 else -1)*.0018*edge*fade*math.sin(x*110+z*7)
  uv=shirt.data.uv_layers.get('GarmentCoordinates')
  for loop in shirt.data.loops:
   co=shirt.data.vertices[loop.vertex_index].co
   uv.data[loop.index].uv=(co.x,1-co.z)
  # Real fabric thickness leaves open collar/cuffs/hem rather than painted edges.
- solid=shirt.modifiers.new('Fabric thickness','SOLIDIFY');solid.thickness=.0025;solid.offset=-1
+ solid=shirt.modifiers.new('Fabric thickness','SOLIDIFY');solid.thickness=.0015;solid.offset=-1
  apply(shirt,solid)
  # Omit covered body triangles to prevent skin poking through on overhead shots.
  # Keep a small overlap at every opening; EditableFullBody retains the anatomy.
