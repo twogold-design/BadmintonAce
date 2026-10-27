@@ -15,7 +15,7 @@ func check(value: bool, label: String) -> void:
 
 func release_shot() -> void:
 	var key = InputEventKey.new()
-	key.physical_keycode = KEY_J
+	key.physical_keycode = KEY_L
 	key.pressed = true
 	game._unhandled_key_input(key)
 	key.pressed = false

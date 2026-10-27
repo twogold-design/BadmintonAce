@@ -18,7 +18,7 @@ const root=path.resolve(__dirname,'..');
    await page.waitForFunction(()=>window.badmintonState?.screen==='menu',null,{timeout:30000});
    await page.mouse.click(200,585);
    await page.waitForTimeout(400);
-   await page.keyboard.down('j');await page.waitForTimeout(170);await page.keyboard.up('j');
+   await page.keyboard.down('l');await page.waitForTimeout(170);await page.keyboard.up('l');
    await page.waitForFunction(()=>window.badmintonState?.hits>=2,null,{timeout:8000});
    await page.waitForTimeout(500);
    assert.equal(errors.length,0,errors.join('\n'));

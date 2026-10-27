@@ -35,7 +35,7 @@ const root=path.resolve(__dirname,'..');
    report.push({width:w,height:h,renderSize:s.render_size,uiScale:s.ui_scale,canvas,corners:s.court_corners});
   }
   await p.setViewportSize({width:1440,height:900});await p.waitForTimeout(300);
-  await p.keyboard.press('j');await p.waitForFunction(()=>window.badmintonState.hits>=2,null,{timeout:10000});
+  await p.keyboard.press('l');await p.waitForFunction(()=>window.badmintonState.hits>=2,null,{timeout:10000});
   await p.keyboard.press('Escape');await p.waitForFunction(()=>window.badmintonState.paused);await p.mouse.click(720,645);await p.waitForFunction(()=>window.badmintonState.screen==='menu');
   for(const [w,h] of [[1280,720],[1024,768]]){
    await p.setViewportSize({width:w,height:h});await p.waitForTimeout(450);

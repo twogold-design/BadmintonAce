@@ -43,7 +43,7 @@ async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);awai
  assert.equal((await state(b)).view_player,1,'Guest owns the near camera');
  await Promise.all(pages.map(p=>wait(p,s=>s.avatars?.[0]==='female'&&s.avatars?.[1]==='male')));
  await a.screenshot({path:path.join(root,'artifacts','female-near-court.png')});
- await tap(a,'j');
+ await tap(a,'l');
  await wait(a,s=>s.phase==='rally');
  await wait(b,s=>s.phase==='rally');
  await b.keyboard.down('d');await sleep(400);await b.keyboard.up('d');
@@ -58,15 +58,15 @@ async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);awai
  console.log('SCORE SYNC',point.score);
  await wait(a,s=>s.phase==='serve');
  await sleep(300);
- await tap(a,'j');
+ await tap(a,'l');
  await wait(b,s=>s.phase==='rally');
  await tap(b,'s',330);
- await b.keyboard.down('j');
+ await b.keyboard.down('l');
  await sleep(160);
  await b.screenshot({path:path.join(root,'artifacts','motion-side-prepare.png')});
  await wait(b,s=>s.ball[2]<3.8&&s.ball[1]<-3.8);
  console.log('BEFORE GUEST SHOT',await state(a),await state(b));
- await b.keyboard.up('j');
+ await b.keyboard.up('l');
  await wait(a,s=>s.hits>=3);
  console.log('GUEST RETURN SYNC',await state(a));
  await sleep(160);

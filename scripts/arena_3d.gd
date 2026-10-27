@@ -57,12 +57,7 @@ func setup(game: Node2D) -> void:
 		athletes.append(athlete)
 	shuttle = Node3D.new()
 	world.add_child(shuttle)
-	var white = ATHLETE_3D.material(Color("f6f4df"))
-	ATHLETE_3D.ellipsoid(shuttle,Vector3.ZERO,Vector3(.035,.038,.035),ATHLETE_3D.material(Color("d8c1a0")))
-	for i in range(12):
-		var a = i*TAU/12
-		var feather = ATHLETE_3D.ellipsoid(shuttle,Vector3(cos(a)*.052,.09,sin(a)*.052),Vector3(.018,.068,.008),white)
-		feather.rotation = Vector3(sin(a)*.38,-a,cos(a)*-.38)
+	preload("res://scripts/shuttle_3d.gd").build(shuttle)
 	configure_view(game)
 
 func box(parent: Node3D, at: Vector3, dimensions: Vector3, mat: Material) -> MeshInstance3D:

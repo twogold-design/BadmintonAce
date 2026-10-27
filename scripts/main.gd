@@ -20,8 +20,8 @@ const TEAL = Color("62dbc6")
 const CORAL = Color("ff947e")
 const G = 10.8
 const DRAG = 0.20
-const SHOTS = ["高远球", "吊球 / 搓球", "杀球 / 平抽", "挑球"]
-const KEYS = [[KEY_J, KEY_L, KEY_K], [KEY_N, KEY_COMMA, KEY_M]]
+const SHOTS = ["高远球", "放网 / 吊球", "杀球 / 平抽", "挑球"]
+const KEYS = [[KEY_L, KEY_J, KEY_K], [KEY_COMMA, KEY_N, KEY_M]]
 
 var screen = "menu"
 var mode = "ai"
@@ -605,7 +605,7 @@ func _try_hit(i: int, shot: int) -> bool:
 	if not _can_hit(i): return false
 	var p = players[i]
 	var serving = phase == "serve"
-	# J is resolved at contact on the authoritative host, including buffered shots.
+	# L is resolved at contact on the authoritative host, including buffered shots.
 	if shot==0 and not serving and ball.z-players[i].jump<1.9: shot=3
 	var direction = -1.0 if i == 0 else 1.0
 	var distance: float = p.pos.distance_to(Vector2(ball.x, ball.y))
@@ -629,7 +629,7 @@ func _try_hit(i: int, shot: int) -> bool:
 			target_x = drop.x
 			target_y = absf(drop.y)
 			travel = lerpf(1.16,1.02,charge) if absf(ball.y) > 3 else lerpf(.90,.78,charge)
-			label = "吊球" if absf(ball.y) > 2.5 else "网前搓球"
+			label = "吊球" if absf(ball.y) > 2.5 else "放网"
 			if absf(p.pos.x) > .5:
 				label = ("直线" if target_x*p.pos.x >= 0 else "斜线") + label
 		2:
@@ -1173,7 +1173,7 @@ func _draw_flight_guide() -> void:
 func _draw_shuttle() -> void:
 	var pos = _project(ball)
 	var ground = _floor(Vector2(ball.x,ball.y))
-	ATHLETE.oval(self,ground,Vector2(11,4)*court_scale,Color(0,0,0,.45))
+	ATHLETE.oval(self,ground,Vector2(5,2)*court_scale,Color(0,0,0,.35))
 	if guide_on and screen=="game":
 		for k in range(0,12,2):
 			draw_line(pos.lerp(ground,k/12.0),pos.lerp(ground,(k+1)/12.0),Color(WHITE,.18),1,true)
@@ -1184,7 +1184,7 @@ func _draw_shuttle() -> void:
 		for k in range(ball_trail.size()):
 			trail_points.append(_project(ball_trail[k]))
 			trail_colors.append(Color(LIME,pow(1-k/float(ball_trail.size()),1.3)*.65))
-		draw_polyline_colors(trail_points,trail_colors,3.0*court_scale,true)
+		draw_polyline_colors(trail_points,trail_colors,1.5*court_scale,true)
 	if arena!=null: return
 	var angle = (_project(ball+velocity*.02)-pos).angle()
 	if screen == "menu": angle = PI*.45
@@ -1225,8 +1225,8 @@ func _draw_hud() -> void:
 	var local_player=_local_player_index()
 	_text(stamina_at+Vector2(10,19),"P"+str(local_player+1)+"  体力",13)
 	_bar(stamina_at+Vector2(10,31),185,players[local_player].stamina,LIME)
-	_text(Vector2(area.position.x+24,area.end.y-18),"WASD 移动   J 高远 / 挑球   K 杀球 / 平抽   L 吊球",13,WHITE)
-	_text(Vector2(area.end.x-490,area.end.y-18),"Space 跳跃   Shift 蹬步   H 轨迹   C 镜头   Esc 暂停",12,MUTED)
+	_center(Vector2(area.get_center().x,area.end.y-18),"WASD 移动   J 放网 / 吊球   K 杀球 / 平抽   L 高远 / 挑球",13,WHITE)
+	_text(Vector2(area.end.x-490,area.end.y-40),"Space 跳跃   Shift 蹬步   H 轨迹   C 镜头   Esc 暂停",12,MUTED)
 	if phase=="serve":
 		_text(left+Vector2(0,116),"松开 J / L 发球" if server==local_player else "对手准备发球",15,LIME)
 	elif toast_time>0:
@@ -1272,13 +1272,13 @@ func _draw_help() -> void:
 	_box(Rect2(718,252,610,224),PANEL,LINE)
 	_text(Vector2(106,294),"01 / 玩家一",24,LIME)
 	_text(Vector2(744,294),"02 / 在线对战",24,CORAL)
-	var left = ["W A S D  移动     ·     方向 + 击球 = 指定落点", "J 高远 / 挑球    K 杀球 / 平抽    L 吊球 / 网前", "Space 跳跃    左 Shift 蹬步救球", "发球：J 高远发球 / L 网前短发球"]
+	var left = ["W A S D  移动     ·     方向 + 击球 = 指定落点", "J 放网 / 吊球    K 杀球 / 平抽    L 高远 / 挑球", "Space 跳跃    左 Shift 蹬步救球", "发球：J 网前短发球 / L 高远发球"]
 	var right = ["双方在各自机器上使用同一套 WASD + J K L", "连接同一内网主机，创建房间或查看房间列表。", "双方都在自己的底线视角操作，自己背对镜头。", "密码可留空；双方完整打完后记录战绩。"]
 	for i in range(4):
 		_text(Vector2(106,333+i*35),left[i],16,WHITE if i < 2 else MUTED)
 		_text(Vector2(744,333+i*35),right[i],16,WHITE if i < 2 else MUTED)
 	var titles = ["拉开纵深", "打出落差", "抢到高点", "守住网前"]
-	var lines = [["高远球压住底线，争取回位时间。","前场被动时用挑球解围。"],["按住 L：A/D 选左右，W/S 选深浅。","停步保留瞄准；近网自动变为搓球。"],["高点 K 杀球；低点自动平抽。","Space 起跳后，接 K 打出跳杀。"],["接球时用蹬步扩大救球范围。","脚下亮环时出手，避免过早挥空。"]]
+	var lines = [["高远球压住底线，争取回位时间。","前场被动时用挑球解围。"],["按住 J：A/D 选左右，W/S 选深浅。","停步保留瞄准；近网自动变为放网。"],["高点 K 杀球；低点自动平抽。","Space 起跳后，接 K 打出跳杀。"],["接球时用蹬步扩大救球范围。","脚下亮环时出手，避免过早挥空。"]]
 	for i in range(4):
 		var x = 80+i*318
 		_box(Rect2(x,502,294,193),PANEL,LINE)

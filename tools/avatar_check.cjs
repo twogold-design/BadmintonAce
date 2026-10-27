@@ -22,7 +22,7 @@ const root=path.resolve(__dirname,'..');
   await p.reload();await p.waitForFunction(()=>window.badmintonState?.screen==='menu'&&window.badmintonState.selected_avatar==='female');
   await p.mouse.click(200,585);await p.waitForFunction(()=>window.badmintonState.screen==='game'&&window.badmintonState.avatars[0]==='female');
   await p.waitForTimeout(300);
-  await p.keyboard.down('j');await p.waitForTimeout(150);await p.keyboard.up('j');
+  await p.keyboard.down('l');await p.waitForTimeout(150);await p.keyboard.up('l');
   await p.waitForFunction(()=>window.badmintonState.hits>=2);
   await p.screenshot({path:path.join(root,'artifacts','female-ai-play.png')});
   assert.equal(errors.length,0,errors.join('\n'));

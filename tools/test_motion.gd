@@ -32,7 +32,8 @@ func _run() -> void:
 	game.net_role = "host"
 	game.start_game("online")
 	game.phase = "rally"
-	game.remote_move = Vector2.RIGHT
+	# Controlled lateral chasse; full-speed lateral travel now turns into a run.
+	game.remote_move = Vector2(.45,0)
 	var planted_frames = 0
 	for tick in range(100):
 		var p: Dictionary = game.players[1]

@@ -34,7 +34,7 @@ const {pathToFileURL} = require('node:url');
   await page.waitForFunction(()=>!window.badmintonState.guide);
   await page.keyboard.press('h');
   await page.waitForFunction(()=>window.badmintonState.guide);
-  await page.keyboard.down('j');await page.waitForTimeout(180);await page.keyboard.up('j');
+  await page.keyboard.down('l');await page.waitForTimeout(180);await page.keyboard.up('l');
   await page.waitForFunction(()=>window.badmintonState.ball[2]>4.5);
   const high=await page.evaluate(()=>window.badmintonState);
   assert.ok(high.ball_screen[1]>20,'High shuttle must remain visible above the court');

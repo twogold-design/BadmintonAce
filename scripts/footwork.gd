@@ -10,6 +10,11 @@ static func reset(p: Dictionary) -> void:
 		"step_from":p.pos,"step_to":p.pos,"body_turn":0.0,"hip_turn":0.0,
 		"weight_shift":0.0,"split":0.0,"lunge":0.0,"preparation":0.0,"footwork":"ready",
 		"stroke_side":1.0,"swing_from":0.0,"reach_dir":Vector2.ZERO},true)
+	p.gait_phase = 0.0
+	p.gait_active = false
+	p.gait_blend = 0.0
+	p.gait_support = [true,false]
+	p.gait_from = [p.foot_l,p.foot_r]
 	p.erase("motion_target")
 	p.erase("contact")
 
@@ -31,10 +36,17 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	if p.swing>0: overhead = false
 	p.preparation = move_toward(p.preparation,1.0 if overhead else 0.0,dt*6)
 	var retreating = p.vel.y*side>.6
-	var toward_net = p.vel.y*side<-.6
 	# Both athletes are right-handed: a forehand coil does not flip when the ball crosses the head.
 	var target_turn = side*(.85*p.preparation if p.preparation>.01 else (.40 if retreating else 0.0))
 	var target_hip = target_turn*.63
+	# Fast lateral travel is a turned running step; keeping the hips square to
+	# the net while translating at sprint speed makes both legs trail sideways.
+	if speed>2.4 and not overhead and not retreating and p.swing<=0:
+		var local_move=move*side
+		var heading=clampf(atan2(local_move.x,-local_move.y),-1.48,1.48)
+		var amount=smoothstep(2.4,3.8,speed)
+		target_hip=lerpf(target_hip,side*heading,amount)
+		target_turn=lerpf(target_turn,side*heading*.72,amount)
 	var shift = 0.0
 	var striking: bool = p.swing>0 and p.stroke!="serve"
 	if striking and p.stroke=="overhead":
@@ -48,18 +60,22 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		target_turn = lerpf(target_turn,0,recovery)
 		shift = sin(t*PI)
 	p.body_turn = move_toward(p.body_turn,target_turn,dt*7.5)
-	p.hip_turn = move_toward(p.hip_turn,target_hip,dt*9.0)
+	p.hip_turn = move_toward(p.hip_turn,target_hip,dt*(3.0 if speed<.6 and not striking else 9.0))
 	p.weight_shift = move_toward(p.weight_shift,shift,dt*10)
 	p.split = maxf(0,p.split-dt)
 	var net_reach = striking and p.stroke in ["net","lift"] and absf(p.pos.y)<3.2
-	var lunging = p.dash>0 or net_reach or (toward_net and absf(p.pos.y)<2.1)
+	var lunging = p.dash>0 or net_reach
 	p.lunge = move_toward(p.lunge,1.0 if lunging else 0.0,dt*(8 if lunging else 4))
-	p.footwork = "lunge" if p.lunge>.25 else ("rear_chasse" if retreating else ("chasse" if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>1.2 else ("run" if speed>2.5 else ("adjust" if speed>.15 else "ready"))))
+	p.footwork = "lunge" if p.lunge>.25 else ("rear_chasse" if retreating else ("chasse" if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4 and speed<=2.6 else ("run" if speed>2.5 else ("adjust" if speed>.15 else "ready"))))
+	var chasse_target=(1-smoothstep(2.2,3.2,speed)) if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4 else 0.0
+	p.gait_blend=move_toward(float(p.gait_blend),chasse_target,dt*4)
 	if p.jump>.1: p.footwork = "scissor" if striking and p.stroke=="overhead" else "jump"
-	var stagger = absf(p.body_turn)*.28
-	var spread = .15 + sin(clampf(p.split/.18,0,1)*PI)*.025
-	var left = Vector2(-spread*cos(p.hip_turn),-stagger)
-	var right = Vector2(spread*cos(p.hip_turn),stagger)
+	var stagger = absf(p.body_turn)*.28*maxf(p.preparation,p.weight_shift)
+	var spread = .18 + sin(clampf(p.split/.18,0,1)*PI)*.025
+	spread+=.10*p.gait_blend
+	var across=Vector2(cos(p.hip_turn),side*sin(p.hip_turn))
+	var left = -across*spread+across.orthogonal()*stagger
+	var right = across*spread-across.orthogonal()*stagger
 	# Racket-side foot starts behind; mirror the stance for the far athlete.
 	if p.weight_shift>0:
 		left.y += p.weight_shift*.10
@@ -74,6 +90,7 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 			left += reach*.28*p.lunge
 			right -= reach*.14*p.lunge
 	var targets = [p.pos+left,p.pos+right]
+	var old_lifts=[p.lift_l,p.lift_r]
 	p.lift_l = 0.0
 	p.lift_r = 0.0
 	if p.jump>.08:
@@ -82,7 +99,14 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		p.foot_l = targets[0]+Vector2(0,scissor)
 		p.foot_r = targets[1]-Vector2(0,scissor)
 		p.step_leg = -1
+		p.gait_active = false
 		return
+	if speed>.35:
+		moving_feet(p,dt,targets,across)
+		return
+	if p.gait_active:
+		p.gait_active=false
+		p.step_leg=-1
 	if p.landing>0 and p.step_leg<0:
 		p.foot_l = targets[0]
 		p.foot_r = targets[1]
@@ -93,19 +117,20 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		if maxf(distances[0],distances[1])<.12 and absf(p.vel.x)>.2:
 			chosen = 1 if p.vel.x>0 else 0
 		if distances[1-chosen]>distances[chosen]+.18: chosen = 1-chosen
-		if distances[chosen]>.12 or (speed>.6 and rally):
+		if distances[chosen]>.045:
 			p.step_leg = chosen
 			p.step_t = 0.0
 			p.step_from = p.foot_l if chosen==0 else p.foot_r
-			# Aim where the moving body will be when this foot lands, not where it was.
-			var step_duration = lerpf(.20,.13,minf(1,speed/4.5))
-			p.step_to = targets[chosen]+move*minf(.75,speed*step_duration*1.15)
+			p.step_from_lift=old_lifts[chosen]
+			# Recover one foot at a time into the turning ready stance.
+			p.step_to = targets[chosen]
 			p.next_leg = 1-chosen
 	if p.step_leg>=0:
 		var duration = lerpf(.20,.13,minf(1,speed/4.5))
 		p.step_t = minf(1,p.step_t+dt/duration)
+		p.step_to=targets[p.step_leg]
 		var foot: Vector2 = p.step_from.lerp(p.step_to,smoothstep(0,1,p.step_t))
-		var lift = sin(p.step_t*PI)*(.022 if p.footwork in ["chasse","adjust","rear_chasse"] else .045)
+		var lift = sin(p.step_t*PI)*.055+float(p.get("step_from_lift",0))*(1-p.step_t)
 		if p.step_leg==0:
 			p.foot_l = foot
 			p.lift_l = lift
@@ -113,13 +138,65 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 			p.foot_r = foot
 			p.lift_r = lift
 		if p.step_t>=1: p.step_leg = -1
-	# Safety reach limit only for long dashes; normal stance foot remains planted.
-	p.foot_l = p.pos+(p.foot_l-p.pos).limit_length(.65)
-	p.foot_r = p.pos+(p.foot_r-p.pos).limit_length(.65)
-	if p.footwork in ["chasse","rear_chasse","ready","adjust"]:
-		# Chasse closes and opens the stance; the feet must not cross through each other.
-		if p.step_leg==0: p.foot_l.x = minf(p.foot_l.x,p.foot_r.x-.07)
-		else: p.foot_r.x = maxf(p.foot_r.x,p.foot_l.x+.07)
+	var separation: float=(p.foot_r-p.foot_l).dot(across)
+	if separation<.18:
+		if p.lift_l>=p.lift_r:p.foot_l-=across*(.18-separation)
+		else:p.foot_r+=across*(.18-separation)
+
+static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector2) -> void:
+	var speed: float=p.vel.length()
+	var direction: Vector2=p.vel.normalized()
+	var blend: float=p.gait_blend
+	var duty=lerpf(lerpf(.42,.34,smoothstep(5.5,7,speed)),.52,blend)
+	var period=clampf(.54-speed*.035,.22,.52)
+	period=lerpf(period,clampf(.32/(speed*duty),.25,.65),blend)
+	# Stride follows ground speed and contact time. The short flight between
+	# running contacts avoids dragging a planted leg beyond its actual reach.
+	var half_stride=minf(.38,speed*period*duty*.5)
+	half_stride=lerpf(half_stride,minf(.16,half_stride),blend)
+	if not p.gait_active:
+		p.gait_active=true
+		p.gait_phase=0.0 if p.vel.x>=0 else .5
+		p.gait_support=[p.gait_phase<duty,fmod(p.gait_phase+.5,1.0)<duty]
+		p.gait_from=[p.foot_l,p.foot_r]
+	p.gait_phase=fmod(p.gait_phase+dt/period,1.0)
+	var feet=[p.foot_l,p.foot_r]
+	var previous=[p.foot_l,p.foot_r]
+	var lifts=[0.0,0.0]
+	for leg in range(2):
+		var phase=fmod(p.gait_phase+leg*.5,1.0)
+		var supporting=phase<duty
+		if supporting:
+			# Keep the last touchdown in world space throughout stance.
+			p.gait_from[leg]=feet[leg]
+		else:
+			if p.gait_support[leg]:p.gait_from[leg]=feet[leg]
+			var t=(phase-duty)/(1.0-duty)
+			var remaining=(1.0-phase)*period
+			var landing: Vector2=targets[leg]+direction*half_stride+p.vel*remaining
+			feet[leg]=p.gait_from[leg].lerp(landing,smoothstep(0,1,t))
+			lifts[leg]=sin(t*PI)*lerpf(.115,.075,blend)
+		p.gait_support[leg]=supporting
+	for leg in range(2):
+		feet[leg]=previous[leg].move_toward(feet[leg],dt*(3.5+speed*2.0))
+		var offset: Vector2=feet[leg]-p.pos
+		if offset.length()>.55:
+			# An abrupt dash/reversal releases an overextended stance immediately.
+			feet[leg]=p.pos+offset.limit_length(.55)
+			p.gait_support[leg]=false
+			p.gait_from[leg]=feet[leg]
+			lifts[leg]=maxf(lifts[leg],.035)
+	# Each foot keeps its own lane. Pairwise pushing would switch the correction
+	# between feet midway through flight and produce a visible sideways snap.
+	for leg in range(2):
+		var sign_= -1.0 if leg==0 else 1.0
+		var lateral: float=(feet[leg]-p.pos).dot(across)*sign_
+		if lateral<.095:
+			feet[leg]+=across*sign_*(.095-lateral)
+			lifts[leg]=maxf(lifts[leg],.035)
+	p.foot_l=feet[0];p.foot_r=feet[1]
+	p.lift_l=lifts[0];p.lift_r=lifts[1]
+	p.step_leg=0 if lifts[0]>lifts[1] else 1
 
 static func snapshot(p: Dictionary) -> Dictionary:
 	var data = {"left":[p.foot_l.x,p.foot_l.y],"right":[p.foot_r.x,p.foot_r.y],"style":p.footwork}

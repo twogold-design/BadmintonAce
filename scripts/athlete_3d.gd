@@ -312,7 +312,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		var start = pelvis+hip_basis*(rest_at("thigh_"+foot_side)-rest_at("pelvis"))
 		var target = lf if foot_side=="l" else rf
 		target.y += rest_at("foot_"+foot_side).y-.09
-		limb("thigh_"+foot_side,"calf_"+foot_side,"foot_"+foot_side,start,target,start+Vector3(sign_x*.12,-.2,-1),length_between("thigh_"+foot_side,"calf_"+foot_side),length_between("calf_"+foot_side,"foot_"+foot_side),Basis(Vector3.UP,hip_turn*.45))
+		limb("thigh_"+foot_side,"calf_"+foot_side,"foot_"+foot_side,start,target,start+hip_basis*Vector3(sign_x*.08,-.2,-1),length_between("thigh_"+foot_side,"calf_"+foot_side),length_between("calf_"+foot_side,"foot_"+foot_side),Basis(Vector3.UP,hip_turn+sign_x*.06))
 	var height_adjust = chest.y-1.33
 	var ready_hand = Vector3(.28,1.18+height_adjust,-.26)
 	var ready_axis = Vector3(.10,.85,-.40).normalized()
@@ -347,6 +347,12 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 			axis = follow_axis.slerp(ready_axis,smoothstep(.40,1,t))
 		free_hand = Vector3(-.26,1.18+height_adjust,-.19)
 		if stroke=="net": free_hand = Vector3(-.40,1.12+height_adjust,.20)
+	elif not serving:
+		# A running athlete carries both arms with the turned torso. Keeping the
+		# hands in the old net-facing plane pulls upper arms through the sleeves.
+		hand = hand.lerp(chest+chest_basis*(hand-chest),1.0-prep)
+		free_hand = free_hand.lerp(chest+chest_basis*(free_hand-chest),1.0-prep)
+		axis = axis.slerp(chest_basis*axis,1.0-prep)
 	var right_shoulder = chest+chest_basis*(rest_at("upperarm_r")-rest_at("spine_03"))
 	var left_shoulder = chest+chest_basis*(rest_at("upperarm_l")-rest_at("spine_03"))
 	# Pole targets orient elbows through the shoulder plane, rather than rotating a flat arm.
@@ -367,7 +373,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	if target_up.length()>.01:
 		var twist = forearm_basis.y.signed_angle_to(target_up.normalized(),forearm_direction)
 		pose("lowerarm_r",joint_points.lowerarm_r,Basis(forearm_direction,clampf(twist,-1.15,1.15)*.7)*forearm_basis)
-	var free_pole = left_shoulder+Vector3(-.12,-.75,.15).lerp(Vector3(-.40,.05,.1),prep)
+	var free_pole = left_shoulder+chest_basis*Vector3(-.12,-.75,.15).lerp(Vector3(-.40,.05,.1),prep)
 	var free_elbow = solve_joint(left_shoulder,free_hand,free_pole,length_between("upperarm_l","lowerarm_l"),length_between("lowerarm_l","hand_l"))
 	limb("upperarm_l","lowerarm_l","hand_l",left_shoulder,free_hand,free_pole,length_between("upperarm_l","lowerarm_l"),length_between("lowerarm_l","hand_l"),Basis(Quaternion((rest_at("hand_l")-rest_at("lowerarm_l")).normalized(),(free_hand-free_elbow).normalized())))
 	racket_basis_current = racket_basis
