@@ -52,18 +52,17 @@ func _run() -> void:
 	game.velocity = Vector3(0,0,-1)
 	game._step_ball(.02)
 	check(game.score[1] == 2,"outside singles sideline is fault")
-	game.goal_score = 11
+	check(game.GOAL_SCORE==11,"all matches use fixed eleven-point scoring")
 	game.score = [11,10]
 	check(not game._match_won(0),"deuce needs two")
 	game.score = [12,10]
 	check(game._match_won(0),"two-point lead wins")
 	game.score = [15,14]
 	check(game._match_won(0),"quick match cap")
-	game.goal_score = 21
-	game.score = [29,28]
-	check(not game._match_won(0),"21-point deuce")
-	game.score = [30,29]
-	check(game._match_won(0),"30-point cap")
+	game.score = [14,13]
+	check(not game._match_won(0),"11-point deuce below cap")
+	game.score = [11,9]
+	check(game._match_won(0),"11-point standard win")
 	game.phase = "rally"
 	game.players[0].stamina = 100
 	game._jump(0)

@@ -58,11 +58,13 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		var from: float = p.swing_from
 		# Hips open first, shoulders follow, then both return to face the net.
 		target_hip = lerpf(from*.63,-p.stroke_side*.12,smoothstep(0,.20,t))
-		target_turn = lerpf(from,-p.stroke_side*.30,smoothstep(.03,.38,t))
+		target_turn = lerpf(from,-p.stroke_side*.18,smoothstep(.03,.38,t))
 		var recovery = smoothstep(.58,1,t)
 		target_hip = lerpf(target_hip,0,recovery)
 		target_turn = lerpf(target_turn,0,recovery)
-		shift = sin(t*PI)
+		# Transfer onto the front/left leg, hold through the follow-through,
+		# then ease back to centre instead of rocking straight back again.
+		shift = smoothstep(0,.40,t)*(1-smoothstep(.65,1,t))
 	p.body_turn = move_toward(p.body_turn,target_turn,dt*7.5)
 	p.hip_turn = move_toward(p.hip_turn,target_hip,dt*(3.0 if speed<.6 and not striking else 9.0))
 	p.weight_shift = move_toward(p.weight_shift,shift,dt*10)
@@ -74,16 +76,15 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var chasse_target=(1-smoothstep(2.2,3.2,speed)) if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4 else 0.0
 	p.gait_blend=move_toward(float(p.gait_blend),chasse_target,dt*4)
 	if p.jump>.1: p.footwork = "scissor" if striking and p.stroke=="overhead" else "jump"
-	var stagger = absf(p.body_turn)*.28*maxf(p.preparation,p.weight_shift)
+	# A modest front/back stagger retains a broad support base after turning
+	# back toward the net; the old long stagger visually crossed the legs.
+	var stagger = absf(p.body_turn)*.13*maxf(p.preparation,p.weight_shift)
 	var spread = .18 + sin(clampf(p.split/.18,0,1)*PI)*.025
+	spread += .03*maxf(p.preparation,p.weight_shift)
 	spread+=.10*p.gait_blend
 	var across=Vector2(cos(p.hip_turn),side*sin(p.hip_turn))
 	var left = -across*spread+across.orthogonal()*stagger
 	var right = across*spread-across.orthogonal()*stagger
-	# Racket-side foot starts behind; mirror the stance for the far athlete.
-	if p.weight_shift>0:
-		left.y += p.weight_shift*.10
-		right.y -= p.weight_shift*.10
 	if p.lunge>0:
 		var reach: Vector2 = p.reach_dir if net_reach else move
 		if reach.length()<.1: reach = Vector2(0,-side)
@@ -102,6 +103,14 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		var scissor = p.weight_shift*.18
 		p.foot_l = targets[0]+Vector2(0,scissor)
 		p.foot_r = targets[1]-Vector2(0,scissor)
+		p.step_leg = -1
+		p.gait_active = false
+		return
+	if striking and p.stroke=="overhead" and speed<=.35 and p.lunge<.1:
+		# Rotate over the established stance. Moving the supporting left foot
+		# to follow every hip angle made the body look as if it was falling.
+		p.lift_l = move_toward(float(old_lifts[0]),0,dt*.6)
+		p.lift_r = move_toward(float(old_lifts[1]),0,dt*.6)
 		p.step_leg = -1
 		p.gait_active = false
 		return

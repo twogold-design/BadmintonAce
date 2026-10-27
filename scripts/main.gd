@@ -26,7 +26,7 @@ const KEYS = [[KEY_L, KEY_J, KEY_K], [KEY_COMMA, KEY_N, KEY_M]]
 var screen = "menu"
 var mode = "ai"
 var difficulty = 1
-var goal_score = 11
+const GOAL_SCORE = 11
 var sound_on = true
 var guide_on = true
 var baseline_camera = true
@@ -129,7 +129,6 @@ func _ready() -> void:
 		test_mode = true
 		ai_both = true
 		start_game("ai")
-		goal_score = 5
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.badmintonReady = true;")
 		var invited = str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('room') || ''"))
@@ -223,7 +222,6 @@ func _build_menu() -> void:
 	_button("操作指南", Rect2(82, 711, 174, 46), _show_help)
 	_button("难度 · " + ["入门", "进阶", "高手"][difficulty], Rect2(270, 711, 186, 46), _cycle_difficulty)
 	_button("声音 · " + ("开" if sound_on else "关"), Rect2(1213, 38, 154, 42), _toggle_sound)
-	_button(str(goal_score) + " 分制", Rect2(1060, 38, 135, 42), _cycle_score)
 	_reset_players()
 	phase = "rally"
 	menu_time = 0.0
@@ -280,10 +278,6 @@ func _draw_avatar_selection() -> void:
 func _cycle_difficulty() -> void:
 	difficulty = (difficulty + 1) % 3
 	_save_settings()
-	_build_menu()
-
-func _cycle_score() -> void:
-	goal_score = 21 if goal_score == 11 else 11
 	_build_menu()
 
 func _toggle_sound() -> void:
@@ -854,7 +848,7 @@ func _point(who: int, reason: String) -> void:
 		p.buffer = 0.0
 
 func _match_won(i: int) -> bool:
-	return (score[i] >= goal_score and score[i] - score[1-i] >= 2) or score[i] >= (30 if goal_score == 21 else goal_score + 4)
+	return (score[i] >= GOAL_SCORE and score[i] - score[1-i] >= 2) or score[i] >= 15
 
 func _end_match(who: int) -> void:
 	phase = "end"
@@ -1221,7 +1215,7 @@ func _draw_menu() -> void:
 
 
 
-	_text(Vector2(84,805), "键盘操作  ·  AI / 在线对战  ·  " + str(goal_score) + " 分一局",15,MUTED)
+	_text(Vector2(84,805), "键盘操作  ·  AI / 在线对战  ·  11 分一局",15,MUTED)
 	if save_best > 0: _text(Vector2(1144,128),"最佳回合  " + str(save_best) + " 拍",13,LIME)
 
 func _draw_hud() -> void:
@@ -1302,7 +1296,7 @@ func _draw_help() -> void:
 		_text(Vector2(x+20,616),lines[i][0],13,MUTED)
 		_text(Vector2(x+20,646),lines[i][1],13,MUTED)
 	_text(Vector2(82,736),"规则：单打内边线，落地得分；下网 / 出界失分。每球得分，赢球方发球，发球左右区随本方分数交替。",16,WHITE)
-	_text(Vector2(82,769),"11 分制需领先 2 分，15 分封顶；21 分制需领先 2 分，30 分封顶。练习模式不计输赢。",14,MUTED)
+	_text(Vector2(82,769),"比赛统一为 11 分制，需领先 2 分，15 分封顶。练习模式不计输赢。",14,MUTED)
 	_text(Vector2(82,807),"短蓄力 0.1–0.5 秒，松键挥拍；提前松键可缓冲接球。H 轨迹 / 落点，C 切换视角。",14,LIME)
 
 # Host-authoritative simulation; a small WebSocket service routes room traffic.
@@ -1575,7 +1569,7 @@ func _receive_packet(d: Dictionary) -> void:
 			identities.set_value("servers",server_address,str(d.token))
 			identities.save("user://identities.cfg")
 			_save_settings()
-			_net_send({"type":net_action,"code":room_code,"goal":goal_score,"password":room_password})
+			_net_send({"type":net_action,"code":room_code,"goal":GOAL_SCORE,"password":room_password})
 		"rooms":
 			net_status = "选择公开房直接加入；有密码房需填写密码。"
 			_show_board("rooms",d.rooms)
@@ -1608,7 +1602,6 @@ func _receive_packet(d: Dictionary) -> void:
 			remote_avatar = "male"
 			net_role = str(d.role)
 			room_code = str(d.code)
-			goal_score = int(d.goal)
 			net_match_id = str(d.match)
 			result_recorded = false
 			start_game("online")

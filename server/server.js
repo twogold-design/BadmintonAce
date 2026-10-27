@@ -45,9 +45,9 @@ const wss = new WebSocketServer({server, path:'/ws', maxPayload:32768, perMessag
 function send(ws, data) { if (ws && ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 1048576) ws.send(JSON.stringify(data)); }
 function error(ws, message) { send(ws, {type:'error', message}); }
 function passwordHash(password,salt){return crypto.scryptSync(password,salt,32);}
-function validScore(score,goal){
+function validScore(score){
   if(!Array.isArray(score)||score.length!==2||!score.every(n=>Number.isInteger(n)&&n>=0))return false;
-  const [high,low]=[Math.max(...score),Math.min(...score)],cap=goal===21?30:15;
+  const [high,low]=[Math.max(...score),Math.min(...score)],goal=11,cap=15;
   return high<=cap&&low<high&&high>=goal&&(high===cap||high-low>=2)&&!(low>=goal&&high-low>2)&&!(low<goal-1&&high>goal);
 }
 function start(room,code,type='start'){
@@ -100,7 +100,7 @@ wss.on('connection', (ws, req) => {
       let code;
       do { code = crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase(); } while (rooms.has(code));
       const salt=crypto.randomBytes(16);
-      rooms.set(code, {host:ws, guest:null, goal:d.goal === 21 ? 21 : 11, created:Date.now(),salt,password:password?passwordHash(password,salt):null});
+      rooms.set(code, {host:ws, guest:null, goal:11, created:Date.now(),salt,password:password?passwordHash(password,salt):null});
       ws.code = code;
       return send(ws, {type:'created', code, invitation:lanOnly ? '' : invitation(ws.connectionInfo,code),scope:ws.connectionInfo.scope,lanOnly,lanAddress:ws.lanAddress});
     }
@@ -128,7 +128,7 @@ wss.on('connection', (ws, req) => {
     const host = room.host === ws;
     const other = host ? room.guest : room.host;
     if(d.type==='finish'){
-      if(d.match!==room.match||!validScore(d.score,room.goal)||JSON.stringify(d.score)!==JSON.stringify(room.finalScore))return error(ws,'结算结果不符合当前对局。');
+      if(d.match!==room.match||!validScore(d.score)||JSON.stringify(d.score)!==JSON.stringify(room.finalScore))return error(ws,'结算结果不符合当前对局。');
       if(room.settled)return send(ws,{type:'recorded',match:room.match});
       room.confirmations.set(ws.profile.id,JSON.stringify(d.score));
       if(room.confirmations.size===2){
@@ -143,7 +143,7 @@ wss.on('connection', (ws, req) => {
       start(room,ws.code,'rematch');return;
     }
     if ((host && ['state','effect'].includes(d.type)) || (!host && d.type === 'input') || d.type==='pause') {
-      if(d.type==='state'&&d.phase==='end'&&validScore(d.score,room.goal))room.finalScore=d.score;
+      if(d.type==='state'&&d.phase==='end'&&validScore(d.score))room.finalScore=d.score;
       if (d.type === 'input') {
         if (!['move','shot','jump','dash'].includes(d.action)) return;
         if (d.action === 'move' && (!Number.isFinite(d.x) || !Number.isFinite(d.y))) return;

@@ -228,14 +228,23 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	var hip_height = rest_pelvis.y-crouch-.025
 	var hip_basis = Basis(Vector3.UP,hip_turn)
 	var chest_basis = Basis(Vector3.UP,turn)
+	# Small, supported weight transfer: load the racket-side leg in preparation,
+	# then settle over the anatomical left leg. Feet remain the support anchors.
+	var preparation = float(p.get("preparation",0))
+	var transfer = float(p.get("weight_shift",0))
+	var grounded = (1-smoothstep(.08,.20,float(p.jump)))*(1-smoothstep(.35,1.0,p.vel.length()))*(1-lunge)
+	var right_load = .5+.12*preparation-.18*transfer
+	var balance = lf.lerp(rf,right_load)
+	balance.y = 0
+	balance = balance.limit_length(.09)*maxf(preparation,transfer)*grounded
 	for foot_side in ["l","r"]:
 		var foot: Vector3 = lf if foot_side=="l" else rf
 		foot.y += measured(avatar,"foot_"+foot_side).y-.09
 		var hip_offset = hip_basis*(measured(avatar,"thigh_"+foot_side)-rest_pelvis)
-		var horizontal = Vector2(foot.x-hip_offset.x,foot.z-hip_offset.z).length()
+		var horizontal = Vector2(foot.x-hip_offset.x-balance.x,foot.z-hip_offset.z-balance.z).length()
 		var leg_length = measured(avatar,"thigh_"+foot_side).distance_to(measured(avatar,"calf_"+foot_side))+measured(avatar,"calf_"+foot_side).distance_to(measured(avatar,"foot_"+foot_side))-.004
 		hip_height = minf(hip_height,foot.y-hip_offset.y+sqrt(maxf(.04,leg_length*leg_length-horizontal*horizontal)))
-	var pelvis = Vector3(0,hip_height,0)
+	var pelvis = Vector3(balance.x,hip_height,balance.z)
 	var chest = pelvis
 	var previous = "pelvis"
 	for pair in [["spine_01",.3],["spine_02",.65],["spine_03",1.0]]:
@@ -318,7 +327,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var ready_axis = Vector3(.10,.85,-.40).normalized()
 	# Preparation holds the head above the hand; racket drop belongs to the stroke,
 	# not the waiting pose. Keep the raised elbow and hand in the shoulder plane.
-	var hand = lerp_vector(ready_hand,Vector3(.48,1.57+height_adjust,-.27),prep)
+	var hand = ready_hand
 	var axis = ready_axis.slerp(Vector3(.10,.96,.20).normalized(),prep)
 	var free_hand = lerp_vector(Vector3(-.28,1.17+height_adjust,-.20),Vector3(-.23,1.76+height_adjust,-.34),prep)
 	if serving:
@@ -359,6 +368,18 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var left_shoulder = chest+chest_basis*(rest_at("upperarm_l")-rest_at("spine_03"))
 	# Pole targets orient elbows through the shoulder plane, rather than rotating a flat arm.
 	var arm_pole = right_shoulder+chest_basis*Vector3(.12,-.65,.02).lerp(Vector3(.40,.10,-.20),prep)
+	if not hit and not serving:
+		# Build a compact preparation from the actual arm lengths. The angle at
+		# the elbow (shoulder -> elbow -> wrist) is 60 degrees for either avatar.
+		var upper_direction = Vector3(1,-.2,0).normalized()
+		var bend_direction = Vector3(0,.6,-1)
+		bend_direction = (bend_direction-upper_direction*bend_direction.dot(upper_direction)).normalized()
+		var lower_direction = -upper_direction*cos(PI/3)+bend_direction*sin(PI/3)
+		var prepared_elbow = right_shoulder+chest_basis*upper_direction*length_between("upperarm_r","lowerarm_r")
+		var prepared_hand = prepared_elbow+chest_basis*lower_direction*length_between("lowerarm_r","hand_r")
+		var compact = smoothstep(0,.8,prep)
+		hand = hand.lerp(prepared_hand,compact)
+		arm_pole = (right_shoulder+chest_basis*Vector3(.12,-.65,.02)).lerp(prepared_elbow,compact)
 	if hit and str(p.stroke)=="overhead":
 		# The elbow and forearm travel across the front of the shirt on follow-through.
 		arm_pole = right_shoulder+chest_basis*Vector3(.28,-.16,-.10).lerp(Vector3(.35,-.35,-.30),smoothstep(0,.4,t))
