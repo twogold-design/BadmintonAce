@@ -1,18 +1,18 @@
 [
   {
     "file": "BadmintonAce-Web.zip",
-    "zip_bytes": 50529513,
-    "extracted_bytes": 88373960,
+    "zip_bytes": 50983765,
+    "extracted_bytes": 88897465,
     "entry": "index.html",
     "integrity": true,
-    "sha256": "a92a24164d702b242cea017056d39eb0c59fc92e2f143a977791390a2e4c6489"
+    "sha256": "55d770e836c5d5e929daa633c28b1a126e68433a667d44eded96fad5981b3876"
   },
   {
     "file": "BadmintonAce-Server.zip",
-    "zip_bytes": 85215576,
-    "extracted_bytes": 181017290,
+    "zip_bytes": 85664075,
+    "extracted_bytes": 181541603,
     "entry": "index.html",
     "integrity": true,
-    "sha256": "2d316ea71518f31f47a1bccf232d2873c1bf33912764d8eb7250c3e7c3706272"
+    "sha256": "5ae8527b95d2f7e418b7de9077fd8b7a72b9a35263694f918f198d7a2912894e"
   }
 ]

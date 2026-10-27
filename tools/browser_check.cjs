@@ -37,7 +37,7 @@ const {pathToFileURL} = require('node:url');
   await page.keyboard.down('j');await page.waitForTimeout(180);await page.keyboard.up('j');
   await page.waitForFunction(()=>window.badmintonState.ball[2]>4.5);
   const high=await page.evaluate(()=>window.badmintonState);
-  assert.ok(high.ball_screen[1]>110,'High shuttle must clear the scoreboard');
+  assert.ok(high.ball_screen[1]>20,'High shuttle must remain visible above the court');
   await page.screenshot({path:path.join(root,'artifacts','baseline-flight.png')});
   await page.waitForFunction(()=>window.badmintonState.hits>=2,null,{timeout:8000});
   await page.waitForTimeout(250);

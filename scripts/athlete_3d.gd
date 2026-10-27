@@ -324,7 +324,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		axis = Vector3(-.12,-.38,-.84).normalized()
 	if hit:
 		var stroke: String = p.get("stroke","overhead")
-		var follow_hand = Vector3(-.06,1.07+height_adjust,-.25)
+		var follow_hand = Vector3(.04,1.18+height_adjust,-.34)
 		var follow_axis = Vector3(-.75,-.45,-.12).normalized()
 		if stroke=="net":
 			follow_hand = contact_hand+Vector3(0,.025,-.06)
@@ -351,7 +351,8 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	# Pole targets orient elbows through the shoulder plane, rather than rotating a flat arm.
 	var arm_pole = right_shoulder+chest_basis*Vector3(.12,-.65,.02).lerp(Vector3(.42,-.08,.04),prep)
 	if hit and str(p.stroke)=="overhead":
-		arm_pole = right_shoulder+chest_basis*Vector3(.28,-.16,-.10).lerp(Vector3(.12,-.55,-.08),smoothstep(0,.4,t))
+		# The elbow and forearm travel across the front of the shirt on follow-through.
+		arm_pole = right_shoulder+chest_basis*Vector3(.28,-.16,-.10).lerp(Vector3(.35,-.35,-.30),smoothstep(0,.4,t))
 	var racket_basis = Basis(Quaternion(Vector3.UP,axis.normalized()))
 	# Rest fingers point +X, thumb is on -Z, palm faces -Y.
 	# In a forehand grip the thumb side points toward the racket head (+Y).

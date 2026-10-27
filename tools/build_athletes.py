@@ -19,6 +19,124 @@ def apply(obj,mod):
  bpy.context.view_layer.objects.active=obj;bpy.ops.object.modifier_apply(modifier=mod.name)
 def bind(obj,rig):
  mod=obj.modifiers.new('Athlete skin','ARMATURE');mod.object=rig;obj.parent=rig
+
+def smoothstep(a,b,value):
+ t=max(0,min(1,(value-a)/(b-a)));return t*t*(3-2*t)
+
+def regular_jersey(body,rig,female,cloth):
+ # Cut a single connected garment from the original weighted topology, then
+ # tailor a regular sports fit. The underlying anatomy and rig are unchanged.
+ shirt=body.copy();shirt.data=body.data.copy();shirt.name='MatchTShirt'
+ bpy.context.collection.objects.link(shirt)
+ shoulder=rig.data.bones['upperarm_l'].head_local.copy()
+ neck=rig.data.bones['neck_01'].head_local.z
+ hem=.950 if female else .970
+ cuff=abs(shoulder.x)+.125
+ def collar(x):return neck-.018+.070*smoothstep(.025,.110,abs(x))
+ bm=bmesh.new();bm.from_mesh(shirt.data)
+ bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00002)
+ def cut(point,normal):
+  bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),dist=.000001,plane_co=point,plane_no=normal,clear_outer=True,clear_inner=False)
+ # Start above the hip topology. A shirt has one open hem, unlike the two
+ # branching leg loops in the anatomical mesh below the pelvis.
+ lower_seam=1.10
+ cut((0,0,lower_seam),(0,0,-1))
+ cut((cuff,0,0),(1,0,0));cut((-cuff,0,0),(-1,0,0))
+ # Flatten the curved neckline only for cutting; retain all interpolated weights.
+ for v in bm.verts:v.co.z-=collar(v.co.x)
+ cut((0,0,0),(0,0,1))
+ for v in bm.verts:v.co.z+=collar(v.co.x)
+ bm.normal_update()
+ for v in bm.verts:
+  original=v.co.copy();x,y,z=original;side=1 if x>=0 else -1
+  base=original+v.normal*.007
+  torso=(1-smoothstep(shoulder.z-.035,shoulder.z+.060,z))*(1-smoothstep(abs(shoulder.x)-.015,abs(shoulder.x)+.065,abs(x)))
+  angle=math.atan2(y+.012,x)
+  # Mildly tapered side seams and a smooth front: enough ease to move without
+  # tracing individual muscles or making an oversized, flared garment.
+  height=smoothstep(hem,shoulder.z-.10,z)
+  waist_ease=math.sin(math.pi*height)
+  width=(.198 if female else .207)-(.021 if female else .016)*waist_ease
+  depth=(.151 if female else .165)-.012*waist_ease
+  if y>-.012:depth+=.015*(1-height)
+  fold=.0012*math.sin(angle*7+z*9)*(1-height)
+  drape=Vector(((width+fold)*math.cos(angle),-.012+(depth+fold)*math.sin(angle),z))
+  base=base.lerp(drape,torso)
+  sleeve=smoothstep(abs(shoulder.x)-.005,abs(shoulder.x)+.075,abs(x))
+  radial=Vector((0,y-shoulder.y,z-shoulder.z))
+  if radial.length>.0001:
+   sleeve_point=original+radial.normalized()*.012
+   base=base.lerp(sleeve_point,sleeve)
+  v.co=base
+ # Extend the waist as complete fabric rings. This makes a clean, continuous
+ # bottom edge and avoids inheriting the pelvis/buttock cleft in the garment.
+ lower_edges=[edge for edge in bm.edges if edge.is_boundary and all(abs(v.co.z-lower_seam)<.012 for v in edge.verts)]
+ assert lower_edges, 'T-shirt waist boundary missing'
+ for ring in range(1,7):
+  z=lower_seam+(hem-lower_seam)*ring/6
+  result=bmesh.ops.extrude_edge_only(bm,edges=lower_edges)
+  new_vertices=[item for item in result['geom'] if isinstance(item,bmesh.types.BMVert)]
+  height=smoothstep(hem,shoulder.z-.10,z);waist_ease=math.sin(math.pi*height)
+  width=(.198 if female else .207)-(.021 if female else .016)*waist_ease
+  for v in new_vertices:
+   angle=math.atan2(v.co.y+.012,v.co.x)
+   # Preserve the angle on an ellipse, rather than accumulating radial drift.
+   previous_height=smoothstep(hem,shoulder.z-.10,v.co.z)
+   previous_ease=math.sin(math.pi*previous_height)
+   previous_width=(.198 if female else .207)-(.021 if female else .016)*previous_ease
+   previous_depth=(.151 if female else .165)-.012*previous_ease
+   if v.co.y>-.012:previous_depth+=.015*(1-previous_height)
+   angle=math.atan2((v.co.y+.012)/previous_depth,v.co.x/previous_width)
+   depth=(.151 if female else .165)-.012*waist_ease
+   if math.sin(angle)>0:depth+=.015*(1-height)
+   v.co=Vector((width*math.cos(angle),-.012+depth*math.sin(angle),z))
+  new_set=set(new_vertices)
+  lower_edges=[edge for edge in bm.edges if edge.is_boundary and all(v in new_set for v in edge.verts)]
+ # A hem belongs to the pelvis, not to independently moving thigh bones.
+ # Uniform cuff weights likewise keep its edge clean as the arm rotates.
+ weights=bm.verts.layers.deform.verify()
+ pelvis=shirt.vertex_groups['pelvis'].index
+ for v in bm.verts:
+  low=1-smoothstep(hem+.025,hem+.115,v.co.z)
+  arm=smoothstep(cuff-.055,cuff-.020,abs(v.co.x))
+  target=shirt.vertex_groups['upperarm_l' if v.co.x>0 else 'upperarm_r'].index if arm>low else pelvis
+  amount=max(low,arm)
+  if amount>0:
+   deform=v[weights]
+   for group in list(deform.keys()):deform[group]*=1-amount
+   deform[target]=deform.get(target,0)+amount
+ # Relax transitions around the axilla without shrinking the open hems/cuffs.
+ inner=[v for v in bm.verts if not v.is_boundary]
+ for _ in range(4):bmesh.ops.smooth_vert(bm,verts=inner,factor=.35,use_axis_x=True,use_axis_y=True,use_axis_z=True)
+ bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(shirt.data);bm.free()
+ shirt.data.materials.clear();shirt.data.materials.append(cloth)
+ for polygon in shirt.data.polygons:polygon.material_index=0;polygon.use_smooth=True
+ uv=shirt.data.uv_layers.get('GarmentCoordinates')
+ for loop in shirt.data.loops:
+  co=shirt.data.vertices[loop.vertex_index].co
+  uv.data[loop.index].uv=(co.x,1-co.z)
+ # Real fabric thickness leaves open collar/cuffs/hem rather than painted edges.
+ solid=shirt.modifiers.new('Fabric thickness','SOLIDIFY');solid.thickness=.0025;solid.offset=-1
+ apply(shirt,solid)
+ # Omit covered body triangles to prevent skin poking through on overhead shots.
+ # Keep a small overlap at every opening; EditableFullBody retains the anatomy.
+ bm=bmesh.new();bm.from_mesh(body.data)
+ def split(point,normal):
+  bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),dist=.000001,plane_co=point,plane_no=normal,clear_outer=False,clear_inner=False)
+ # Split crossing triangles at the openings, so a large retained hip/neck
+ # triangle cannot poke through the cloth merely because one corner is outside.
+ split((0,0,hem-.004),(0,0,1))
+ split((cuff-.008,0,0),(1,0,0));split((-cuff+.008,0,0),(1,0,0))
+ for v in bm.verts:v.co.z-=collar(v.co.x)-.004
+ split((0,0,0),(0,0,1))
+ for v in bm.verts:v.co.z+=collar(v.co.x)-.004
+ covered=[]
+ for f in bm.faces:
+  co=f.calc_center_median()
+  if co.z>hem-.003 and co.z<collar(co.x)-.004 and abs(co.x)<cuff-.008:covered.append(f)
+ bmesh.ops.delete(bm,geom=covered,context='FACES');bm.to_mesh(body.data);bm.free()
+ print('REGULAR JERSEY', 'female' if female else 'male',len(shirt.data.vertices),'vertices; hem',hem,'cuff',round(cuff,3))
+ return shirt
 def shoe(body,rig,side,white,rubber):
  sx=1 if side=='l' else -1
  points=[v.co.copy() for v in body.data.vertices if v.co.z<.10 and v.co.x*sx>0]
@@ -122,13 +240,9 @@ def build(gender):
     if p:
      for link in list(p.inputs['Base Color'].links):material.node_tree.links.remove(link)
      p.inputs['Base Color'].default_value=(.035,.025,.025,1)
- # Professional base rig and original topology remain intact. Use flat sports
- # fabrics over the existing skinned anatomy, with ordinary garment seams.
+ # Keep anatomical proportions and use a separate, continuous regular T-shirt.
  cloth=mat('Ace_Jersey',(.47,.65,.23));dark=mat('Ace_Shorts',(.022,.046,.066));white=mat('Ace_Shoes',(.78,.82,.80));rubber=mat('Ace_Sole',(.055,.075,.085))
- # Fitted sports kit shares the body's continuous topology and exact skin weights.
- # No disconnected sleeves, floating collar or separately stretched waist pieces.
- # Continuous rest-space garment coordinates give clean collar/cuff/hem edges
- # independently of the body's triangle layout, even while the body bends.
+ # Rest-space garment coordinates keep the remaining shorts/sock edges clean.
  while len(body.data.uv_layers)>1:body.data.uv_layers.remove(body.data.uv_layers[-1])
  garment_uv=body.data.uv_layers.new(name='GarmentCoordinates')
  for loop in body.data.loops:
@@ -137,6 +251,7 @@ def build(gender):
  for side in ['l','r']:shoe(body,rig,side,white,rubber)
  reference=body.copy();reference.data=body.data.copy();reference.name='EditableFullBody'
  bpy.context.collection.objects.link(reference);reference.hide_render=True;reference.hide_viewport=True
+ regular_jersey(body,rig,female,cloth)
  # Runtime sports kit uses the base colour only; unused normal/roughness maps
  # would be duplicated in both the web PCK and local-file fallback bundle.
  for material in bpy.data.materials:

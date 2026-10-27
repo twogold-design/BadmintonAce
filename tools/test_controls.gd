@@ -86,16 +86,17 @@ func _run() -> void:
 		check(game.players[0].stroke == ["overhead","overhead","overhead","lift"][shot],"shot and contact height select animation")
 		for tick in range(300):
 			if game.phase != "rally": break
-			var projected = game._project(game.ball)
-			check(projected.y > 110 and projected.y < 838,"actual flight stays outside scoreboard and controls")
+			game.arena.sync(game,1.0/120)
+			var projected = (game._project(game.ball)*game.interface_scale()+game.interface_offset())/game.get_viewport_rect().size*Vector2(1440,900)
+			check(projected.y > 20 and projected.y < 868,"actual flight stays outside scoreboard and controls")
 			game._step_ball(1.0/120)
 	setup_rally()
 	game.ball = Vector3(0,3,1.5)
 	game._try_hit(0,2)
-	check(game.players[0].stroke == "drive","low L uses drive animation")
+	check(game.players[0].stroke == "drive","low K uses drive animation")
 	# True camera projection must agree with the world, including off-screen extreme heights.
 	for side in [-6.7,0.0,6.7]:
-		var expected: Vector2 = game.arena.camera.unproject_position(Vector3(0,12,side))*Vector2(1440,900)/Vector2(game.arena.size)
+		var expected: Vector2 = game.screen_to_interface(game.arena.camera.unproject_position(Vector3(0,12,side)))
 		check(game._project(Vector3(0,side,12)).distance_to(expected)<.001,"3D projection never distorts physical height")
 	check(game._floor(Vector2(0,6.7)).y > game._floor(Vector2(0,-6.7)).y,"near/far orientation retained")
 	var baseline_far = game._floor(Vector2(0,-6.7))

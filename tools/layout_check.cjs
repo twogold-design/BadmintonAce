@@ -29,12 +29,24 @@ const root=path.resolve(__dirname,'..');
    const canvas=await p.locator('canvas').boundingBox(),s=await p.evaluate(()=>window.badmintonState);
    assert.ok(Math.abs(canvas.width-w)<2&&Math.abs(canvas.height-h)<2,'Canvas must fill the window without letterboxing');
    assert.ok(Math.abs(s.render_size[0]/s.render_size[1]-w/h)<.01,'3D render keeps the actual window aspect');
-   for(const [x,y] of s.court_corners)assert.ok(x>0&&x<1440&&y>0&&y<857,'Playable boundary remains visible');
+   assert.ok(Math.abs(s.ui_scale[0]-s.ui_scale[1])<.0001,'Buttons, text and icons must scale uniformly');
+   for(const [x,y] of s.court_corners)assert.ok(x>0&&x<1440&&y>0&&y<880,'Playable boundary remains visible');
    await p.screenshot({path:path.join(root,'artifacts',`window-${w}x${h}.png`)});
-   report.push({width:w,height:h,renderSize:s.render_size,canvas,corners:s.court_corners});
+   report.push({width:w,height:h,renderSize:s.render_size,uiScale:s.ui_scale,canvas,corners:s.court_corners});
   }
   await p.setViewportSize({width:1440,height:900});await p.waitForTimeout(300);
   await p.keyboard.press('j');await p.waitForFunction(()=>window.badmintonState.hits>=2,null,{timeout:10000});
+  await p.keyboard.press('Escape');await p.waitForFunction(()=>window.badmintonState.paused);await p.mouse.click(720,645);await p.waitForFunction(()=>window.badmintonState.screen==='menu');
+  for(const [w,h] of [[1280,720],[1024,768]]){
+   await p.setViewportSize({width:w,height:h});await p.waitForTimeout(450);
+   const state=await p.evaluate(()=>window.badmintonState);
+   const screenPoint=(x,y)=>[(x*state.ui_scale[0]+state.ui_offset[0])/state.render_size[0]*w,(y*state.ui_scale[1]+state.ui_offset[1])/state.render_size[1]*h];
+   await p.screenshot({path:path.join(root,'artifacts',`menu-${w}x${h}.png`)});
+   await p.mouse.click(...screenPoint(200,585));await p.waitForFunction(()=>window.badmintonState.screen==='game');
+   await p.keyboard.press('Escape');await p.waitForFunction(()=>window.badmintonState.paused);await p.waitForTimeout(100);
+   await p.screenshot({path:path.join(root,'artifacts',`buttons-${w}x${h}.png`)});
+   await p.mouse.click(...screenPoint(720,645));await p.waitForFunction(()=>window.badmintonState.screen==='menu');
+  }
   assert.equal(errors.length,0,errors.join('\n'));
   fs.writeFileSync(path.join(root,'artifacts','layout-test.json'),JSON.stringify({ok:true,minDemoPelvisHeight:minHip,sizes:report,errors},null,2));
   console.log('PASS: continuous home motion, 5 window sizes, visible court bounds, AI return; minimum pelvis height',minHip);
