@@ -217,17 +217,20 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	var base = Basis(Vector3.UP,0 if index==0 else PI)
 	var side = 1.0 if index==0 else -1.0
 	var lunge = float(p.get("lunge",0))
+	var receiving = float(p.get("receive_ready",0))
+	var serving = float(p.get("service_ready",0))
+	var lean = -.075*receiving
 	var turn = -side*float(p.get("body_turn",0))
 	var hip_turn = -side*float(p.get("hip_turn",0))
 	var left_foot: Vector2 = p.get("foot_l",p.pos+Vector2(-.16,0)) if index==0 else p.get("foot_r",p.pos+Vector2(.16,0))
 	var right_foot: Vector2 = p.get("foot_r",p.pos+Vector2(.16,0)) if index==0 else p.get("foot_l",p.pos+Vector2(-.16,0))
 	var lf = base.inverse()*Vector3(left_foot.x-p.pos.x,.09+float(p.get("lift_l" if index==0 else "lift_r",0)),left_foot.y-p.pos.y)
 	var rf = base.inverse()*Vector3(right_foot.x-p.pos.x,.09+float(p.get("lift_r" if index==0 else "lift_l",0)),right_foot.y-p.pos.y)
-	var crouch = lunge*.11+sin(clampf(float(p.get("split",0))/.18,0,1)*PI)*.035
+	var crouch = lunge*.11+sin(clampf(float(p.get("split",0))/.18,0,1)*PI)*.035+.075*receiving+.025*serving
 	var rest_pelvis = measured(avatar,"pelvis")
 	var hip_height = rest_pelvis.y-crouch-.025
 	var hip_basis = Basis(Vector3.UP,hip_turn)
-	var chest_basis = Basis(Vector3.UP,turn)
+	var chest_basis = Basis(Vector3.UP,turn)*Basis(Vector3.RIGHT,lean)
 	# Small, supported weight transfer: load the racket-side leg in preparation,
 	# then settle over the anatomical left leg. Feet remain the support anchors.
 	var preparation = float(p.get("preparation",0))
@@ -237,6 +240,10 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	var balance = lf.lerp(rf,right_load)
 	balance.y = 0
 	balance = balance.limit_length(.09)*maxf(preparation,transfer)*grounded
+	# Receive with a little more load over the front (left) leg, not a deep lunge.
+	var service_balance = lf.lerp(rf,.42 if receiving>.01 else lerpf(.56,.46,float(p.get("service_long",0))))
+	service_balance.y=0
+	balance = balance.lerp(service_balance.limit_length(.06),maxf(receiving,serving)*grounded)
 	for foot_side in ["l","r"]:
 		var foot: Vector3 = lf if foot_side=="l" else rf
 		foot.y += measured(avatar,"foot_"+foot_side).y-.09
@@ -248,10 +255,10 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	var chest = pelvis
 	var previous = "pelvis"
 	for pair in [["spine_01",.3],["spine_02",.65],["spine_03",1.0]]:
-		chest += Basis(Vector3.UP,lerpf(hip_turn,turn,float(pair[1])))*(measured(avatar,pair[0])-measured(avatar,previous))
+		chest += Basis(Vector3.UP,lerpf(hip_turn,turn,float(pair[1])))*Basis(Vector3.RIGHT,lean*float(pair[1]))*(measured(avatar,pair[0])-measured(avatar,previous))
 		previous=pair[0]
 	var shoulder = chest+chest_basis*(measured(avatar,"upperarm_r")-measured(avatar,"spine_03"))
-	return {"base":base,"pelvis":pelvis,"chest":chest,"shoulder":shoulder,"hip_basis":hip_basis,"chest_basis":chest_basis,"lf":lf,"rf":rf,"hip_turn":hip_turn,"turn":turn}
+	return {"base":base,"pelvis":pelvis,"chest":chest,"shoulder":shoulder,"hip_basis":hip_basis,"chest_basis":chest_basis,"lf":lf,"rf":rf,"hip_turn":hip_turn,"turn":turn,"lean":lean}
 
 static func can_reach(p: Dictionary, index: int, shuttle: Vector3) -> bool:
 	# Both avatars share the reachable zone; body size never grants an advantage.
@@ -292,6 +299,8 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		var shoulder: Vector3 = frame.shoulder
 		var delta = contact-shoulder
 		contact_axis = (contact-shoulder).normalized()
+		if str(p.get("stroke",""))=="serve":
+			contact_axis = Vector3(-.88,-.22,-.42).normalized() if int(p.shot)==1 else Vector3(.15,-.45,-.88).normalized()
 		if absf(contact.distance_to(shoulder)-RACKET_CENTER)<.07:
 			# A close body shot needs a tilted racket, not a fully folded zero-length arm.
 			var tilt_axis = contact_axis.cross(Vector3.UP)
@@ -305,7 +314,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var torso_basis = hip_basis
 	for pair in [["spine_01",.3],["spine_02",.65],["spine_03",1.0],["neck_01",1.0],["Head",1.0]]:
 		var name_: String = pair[0]
-		torso_basis = Basis(Vector3.UP,lerpf(hip_turn,turn,float(pair[1])))
+		torso_basis = Basis(Vector3.UP,lerpf(hip_turn,turn,float(pair[1])))*Basis(Vector3.RIGHT,float(frame.lean)*float(pair[1]))
 		at += torso_basis*(rest_at(name_)-rest_at(previous))
 		pose(name_,at,torso_basis)
 		if name_=="spine_03": chest=at
@@ -330,16 +339,28 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var hand = ready_hand
 	var axis = ready_axis.slerp(Vector3(.10,.96,.20).normalized(),prep)
 	var free_hand = lerp_vector(Vector3(-.28,1.17+height_adjust,-.20),Vector3(-.23,1.76+height_adjust,-.34),prep)
+	var receive = float(p.get("receive_ready",0))
+	hand = hand.lerp(Vector3(.25,1.26+height_adjust,-.37),receive)
+	axis = axis.slerp(Vector3(.05,.98,.12).normalized(),receive)
+	free_hand = free_hand.lerp(Vector3(-.30,1.12+height_adjust,-.19),receive)
 	if serving:
-		free_hand = local_ball+Vector3(0,.04,0)
-		hand = Vector3(.28,.99+height_adjust,.02)
-		axis = Vector3(-.12,-.38,-.84).normalized()
+		var high = float(p.get("service_long",0))
+		free_hand = local_ball+Vector3(0,.085,.025)
+		var short_axis = Vector3(-.88,-.22,-.42).normalized()
+		var short_basis = Basis(Quaternion(Vector3.UP,short_axis))
+		var short_hand = local_ball-short_axis*RACKET_CENTER-short_basis*Vector3(-.015,.035,-.055)
+		var long_hand = Vector3(.32,.94+height_adjust,.10)
+		hand = short_hand.lerp(chest+chest_basis*(long_hand-chest),high)
+		axis = short_axis.slerp(chest_basis*Vector3(.15,-.25,.96).normalized(),high)
 	if hit:
 		var stroke: String = p.get("stroke","overhead")
 		var follow_hand = Vector3(.04,1.18+height_adjust,-.34)
 		var follow_axis = Vector3(-.75,-.45,-.12).normalized()
 		if stroke=="net":
 			follow_hand = contact_hand+Vector3(0,.025,-.06)
+			follow_axis = contact_axis
+		elif stroke=="serve" and int(p.shot)==1:
+			follow_hand = contact_hand+Vector3(0,.035,-.10)
 			follow_axis = contact_axis
 		elif stroke in ["lift","serve"]:
 			follow_hand = Vector3(.24,1.30+height_adjust,-.38)
@@ -368,6 +389,8 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var left_shoulder = chest+chest_basis*(rest_at("upperarm_l")-rest_at("spine_03"))
 	# Pole targets orient elbows through the shoulder plane, rather than rotating a flat arm.
 	var arm_pole = right_shoulder+chest_basis*Vector3(.12,-.65,.02).lerp(Vector3(.40,.10,-.20),prep)
+	if serving or (hit and str(p.get("stroke",""))=="serve"):
+		arm_pole = right_shoulder+chest_basis*Vector3(.05,-.35,.40).lerp(Vector3(.12,-.65,.02),float(p.get("service_long",0)))
 	if not hit and not serving:
 		# Build a compact preparation from the actual arm lengths. The angle at
 		# the elbow (shoulder -> elbow -> wrist) is 60 degrees for either avatar.
@@ -377,24 +400,31 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		var lower_direction = -upper_direction*cos(PI/3)+bend_direction*sin(PI/3)
 		var prepared_elbow = right_shoulder+chest_basis*upper_direction*length_between("upperarm_r","lowerarm_r")
 		var prepared_hand = prepared_elbow+chest_basis*lower_direction*length_between("lowerarm_r","hand_r")
-		var compact = smoothstep(0,.8,prep)
+		var compact = smoothstep(0,.8,prep)*(1-receive)
 		hand = hand.lerp(prepared_hand,compact)
 		arm_pole = (right_shoulder+chest_basis*Vector3(.12,-.65,.02)).lerp(prepared_elbow,compact)
 	if hit and str(p.stroke)=="overhead":
 		# The elbow and forearm travel across the front of the shirt on follow-through.
 		arm_pole = right_shoulder+chest_basis*Vector3(.28,-.16,-.10).lerp(Vector3(.35,-.35,-.30),smoothstep(0,.4,t))
 	var racket_basis = Basis(Quaternion(Vector3.UP,axis.normalized()))
-	if not hit and not serving:
+	var service_stroke = hit and str(p.get("stroke",""))=="serve"
+	if not hit or service_stroke:
 		# A shaft direction alone has no roll. The shortest UP-to-shaft rotation
 		# lost the shoulder turn and left the palm twisted against the forearm.
 		# Resolve the string-bed roll from the elbow-to-wrist direction instead.
-		var elbow = solve_joint(right_shoulder,hand,arm_pole,length_between("upperarm_r","lowerarm_r"),length_between("lowerarm_r","hand_r"))
-		var forearm = (hand-elbow).normalized()
-		var shaft = axis.normalized()
-		var fingers = (forearm-shaft*forearm.dot(shaft)).normalized()
-		if fingers.length()>.01:
-			var prepared_basis = Basis(shaft.cross(-fingers),shaft,-fingers).orthonormalized()
-			racket_basis = Basis(racket_basis.get_rotation_quaternion().slerp(prepared_basis.get_rotation_quaternion(),smoothstep(0,.65,prep)))
+		var place_shuttle = serving and float(p.get("service_long",0))<.001
+		var place_contact = service_stroke and t<.001
+		for iteration in range(8 if place_shuttle or place_contact else 1):
+			var elbow = solve_joint(right_shoulder,hand,arm_pole,length_between("upperarm_r","lowerarm_r"),length_between("lowerarm_r","hand_r"))
+			var forearm = (hand-elbow).normalized()
+			var shaft = axis.normalized()
+			var fingers = (forearm-shaft*forearm.dot(shaft)).normalized()
+			if fingers.length()>.01:
+				var prepared_basis = Basis(shaft.cross(-fingers),shaft,-fingers).orthonormalized()
+				var align = 1.0 if serving or service_stroke else maxf(smoothstep(0,.65,prep),receive)
+				racket_basis = Basis(racket_basis.get_rotation_quaternion().slerp(prepared_basis.get_rotation_quaternion(),align))
+			if place_shuttle or place_contact:
+				hand = (contact if place_contact else local_ball)-shaft*(contact_offset if place_contact else RACKET_CENTER)-racket_basis*Vector3(-.015,.035,-.055)
 	# Rest fingers point +X, thumb is on -Z, palm faces -Y.
 	# In a forehand grip the thumb side points toward the racket head (+Y).
 	# Preserve handedness: the previous frame put the pinky above the thumb.
@@ -406,7 +436,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var target_up = grip_basis.y-forearm_direction*grip_basis.y.dot(forearm_direction)
 	if target_up.length()>.01:
 		var twist = forearm_basis.y.signed_angle_to(target_up.normalized(),forearm_direction)
-		var prepared = smoothstep(0,.65,prep) if not hit and not serving else 0.0
+		var prepared = 1.0 if serving or service_stroke else (maxf(smoothstep(0,.65,prep),receive) if not hit else 0.0)
 		# Let the forearm carry preparation pronation instead of leaving the
 		# remaining rotation as an abrupt twist at the wrist seam.
 		var applied_twist = lerpf(clampf(twist,-1.15,1.15)*.7,clampf(twist,-1.65,1.65),prepared)

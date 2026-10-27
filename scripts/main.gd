@@ -333,6 +333,7 @@ func _begin_serve() -> void:
 		p.jump = 0.0
 		p.jump_v = 0.0
 		FOOTWORK.reset(p)
+	for i in range(2): FOOTWORK.set_service_stance(players[i],i,i!=server)
 	ball = _serve_ball()
 	velocity = Vector3.ZERO
 	last_hit = server
@@ -341,7 +342,8 @@ func _begin_serve() -> void:
 
 func _serve_ball() -> Vector3:
 	var side = 1.0 if server==0 else -1.0
-	return Vector3(players[server].pos.x-.18*side,players[server].pos.y-.35*side,1.05)
+	var high = float(players[server].get("service_long",0))
+	return Vector3(players[server].pos.x+lerpf(-.18,.30,high)*side,players[server].pos.y-lerpf(.35,.45,high)*side,1.05)
 
 func _pause_menu() -> void:
 	if screen != "game": return
@@ -470,7 +472,10 @@ func _physics_process(delta: float) -> void:
 			players[server].buffer = maxf(0,players[server].buffer-dt)
 			_try_hit(server,players[server].shot)
 		if (server == 1 and mode in ["ai", "practice"]) or ai_both:
-			if phase_time > 1.0: _try_hit(server, 0 if randf() > .45 else 1)
+			if phase_time>.2 and players[server].charge<0: players[server].charge = 0 if randf()>.45 else 1
+			if phase_time>1.0:
+				_try_hit(server,int(players[server].charge))
+				players[server].charge=-1
 	elif phase == "rally":
 		_step_ball(dt)
 		for i in range(2):
@@ -543,7 +548,7 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 	p.pos.x = clampf(p.pos.x, -3.75, 3.75)
 	p.pos.y = clampf(p.pos.y, .45, 7.4) if i == 0 else clampf(p.pos.y, -7.4, -.45)
 	p.step += p.vel.length() * dt * 2.6
-	FOOTWORK.update(p,i,dt,phase=="rally",last_hit!=i,ball,is_ai)
+	FOOTWORK.update(p,i,dt,phase=="rally",last_hit!=i,ball,is_ai,(1 if i==server else 2) if phase=="serve" else 0)
 
 func _ai(i: int, dt: float) -> Vector2:
 	var p = players[i]
@@ -600,6 +605,9 @@ func _try_hit(i: int, shot: int) -> bool:
 	if not _can_hit(i): return false
 	var p = players[i]
 	var serving = phase == "serve"
+	if serving:
+		p.service_long = 0.0 if shot==1 else 1.0
+		ball = _serve_ball()
 	# L is resolved at contact on the authoritative host, including buffered shots.
 	if shot==0 and not serving and ball.z-players[i].jump<1.9: shot=3
 	var direction = -1.0 if i == 0 else 1.0

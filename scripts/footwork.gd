@@ -2,7 +2,7 @@ extends RefCounted
 ## Cosmetic foot plants and a hip-led stroke; never changes shot physics or input.
 
 const SWING_TIME = .48
-const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation"]
+const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation","service_ready","receive_ready","service_long"]
 
 static func reset(p: Dictionary) -> void:
 	p.merge({"foot_l":p.pos+Vector2(-.16,0),"foot_r":p.pos+Vector2(.16,0),
@@ -11,12 +11,35 @@ static func reset(p: Dictionary) -> void:
 		"weight_shift":0.0,"split":0.0,"lunge":0.0,"preparation":0.0,"footwork":"ready",
 		"stroke_side":1.0,"swing_from":0.0,"reach_dir":Vector2.ZERO},true)
 	p.gait_phase = 0.0
+	p.service_ready = 0.0
+	p.receive_ready = 0.0
+	p.service_long = 0.0
 	p.gait_active = false
 	p.gait_blend = 0.0
 	p.gait_support = [true,false]
 	p.gait_from = [p.foot_l,p.foot_r]
 	p.erase("motion_target")
 	p.erase("contact")
+
+static func service_targets(p: Dictionary, index: int, receiving: bool) -> Array:
+	# Anatomical left/right, mirrored into world slots for the far player.
+	var long_serve = float(p.service_long)
+	var left_depth = -.20 if receiving else lerpf(.12,-.20,long_serve)
+	var right_depth = .18 if receiving else lerpf(-.14,.18,long_serve)
+	var side = 1.0 if index==0 else -1.0
+	var left: Vector2 = p.pos+Vector2(-.19,left_depth)*side
+	var right: Vector2 = p.pos+Vector2(.19,right_depth)*side
+	return [left,right] if index==0 else [right,left]
+
+static func set_service_stance(p: Dictionary, index: int, receiving: bool) -> void:
+	p.service_ready = 0.0 if receiving else 1.0
+	p.receive_ready = 1.0 if receiving else 0.0
+	p.service_long = 0.0
+	p.body_turn = (1.0 if index==0 else -1.0)*(.30 if receiving else .08)
+	p.hip_turn = p.body_turn*.6
+	var feet = service_targets(p,index,receiving)
+	p.foot_l=feet[0];p.foot_r=feet[1]
+	p.footwork = "receive_ready" if receiving else "serve_short"
 
 static func hit(p: Dictionary, index: int, shuttle: Vector3, serving: bool) -> void:
 	p.stroke_side = (1.0 if index==0 else -1.0) * (-1.0 if p.backhand else 1.0)
@@ -26,10 +49,14 @@ static func hit(p: Dictionary, index: int, shuttle: Vector3, serving: bool) -> v
 	p.contact = shuttle
 	if serving: p.stroke = "serve"
 
-static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: bool, shuttle: Vector3, is_ai: bool) -> void:
+static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: bool, shuttle: Vector3, is_ai: bool, service_role: int = 0) -> void:
 	var side = 1.0 if index==0 else -1.0
 	var speed: float = p.vel.length()
 	var move: Vector2 = p.vel.normalized() if speed>.1 else Vector2.ZERO
+	p.service_ready = move_toward(float(p.service_ready),1.0 if service_role==1 else 0.0,dt*7)
+	p.receive_ready = move_toward(float(p.receive_ready),1.0 if service_role==2 else 0.0,dt*7)
+	if service_role==1 and p.charge>=0:
+		p.service_long = move_toward(float(p.service_long),1.0 if p.charge==0 else 0.0,dt*5)
 	var selected_shot = int(p.charge) if p.charge>=0 else int(p.shot)
 	var overhead = rally and (p.charge>=0 or p.buffer>0) and selected_shot in [0,1,2] and shuttle.z>1.8
 	if is_ai and rally and incoming and shuttle.z>2.2: overhead = true
@@ -42,6 +69,7 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var retreating = p.vel.y*side>.6
 	# Both athletes are right-handed: a forehand coil does not flip when the ball crosses the head.
 	var target_turn = side*(.85*p.preparation if p.preparation>.01 else (.40 if retreating else 0.0))
+	if service_role>0: target_turn = side*(.30 if service_role==2 else lerpf(.08,.58,p.service_long))
 	var target_hip = target_turn*.63
 	# Fast lateral travel is a turned running step; keeping the hips square to
 	# the net while translating at sprint speed makes both legs trail sideways.
@@ -95,6 +123,9 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 			left += reach*.28*p.lunge
 			right -= reach*.14*p.lunge
 	var targets = [p.pos+left,p.pos+right]
+	if service_role>0:
+		targets = service_targets(p,index,service_role==2)
+		p.footwork = "receive_ready" if service_role==2 else ("serve_long" if p.service_long>.5 else "serve_short")
 	var old_lifts=[p.lift_l,p.lift_r]
 	p.lift_l = 0.0
 	p.lift_r = 0.0
@@ -161,6 +192,9 @@ static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector
 	var direction: Vector2=p.vel.normalized()
 	var blend: float=p.gait_blend
 	var duty=lerpf(lerpf(.42,.34,smoothstep(5.5,7,speed)),.52,blend)
+	# Leaving the receiving stance at walking/chasse speed must keep support
+	# while the wider running cycle blends in.
+	duty=lerpf(.52,duty,smoothstep(2.4,3.2,speed))
 	var period=clampf(.54-speed*.035,.22,.52)
 	period=lerpf(period,clampf(.32/(speed*duty),.25,.65),blend)
 	# Stride follows ground speed and contact time. The short flight between
@@ -170,6 +204,10 @@ static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector
 	if not p.gait_active:
 		p.gait_active=true
 		p.gait_phase=0.0 if p.vel.x>=0 else .5
+		if maxf(float(p.get("service_ready",0)),float(p.get("receive_ready",0)))>.01:
+			# The split stance already places a foot behind the centre: shorten
+			# this first support interval so it does not overextend before landing.
+			p.gait_phase+=.12
 		p.gait_support=[p.gait_phase<duty,fmod(p.gait_phase+.5,1.0)<duty]
 		p.gait_from=[p.foot_l,p.foot_r]
 	p.gait_phase=fmod(p.gait_phase+dt/period,1.0)
