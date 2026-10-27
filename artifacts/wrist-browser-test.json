@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "results": [
+    {
+      "entry": "file",
+      "hits": 2,
+      "errors": []
+    },
+    {
+      "entry": "http",
+      "hits": 2,
+      "errors": []
+    }
+  ]
+}

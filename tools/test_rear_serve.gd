@@ -31,7 +31,7 @@ func run():
 				check(absf(elbow_angle-60)<.5,"Prepared elbow interior angle stays at 60 degrees for either avatar")
 				check(model.joint_points.hand_r.distance_to(model.joint_points.upperarm_r)<.29,"Prepared hand stays close to the shoulder")
 				var palm: Basis=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
-				var lower: Basis=model.poses[model.bones.lowerarm_r].basis*model.rests[model.bones.lowerarm_r].basis.inverse()
+				var lower: Basis=model.poses[model.bones.ace_forearm_r_4].basis*model.rests[model.bones.ace_forearm_r_4].basis.inverse()
 				var wrist_twist=absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))
 				check(wrist_twist<deg_to_rad(15),"Preparation does not leave forearm roll twisted at wrist seam")
 				check(palm.x.dot(forearm)>cos(deg_to_rad(35)),"Prepared palm continues the forearm without a sharp wrist bend")

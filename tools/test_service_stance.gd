@@ -34,7 +34,7 @@ func run():
 						var head: Vector3=model.basis.inverse()*(model.racket_center_world-model.position)
 						var forearm: Vector3=(model.joint_points.hand_r-model.joint_points.lowerarm_r).normalized()
 						var palm: Basis=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
-						var lower: Basis=model.poses[model.bones.lowerarm_r].basis*model.rests[model.bones.lowerarm_r].basis.inverse()
+						var lower: Basis=model.poses[model.bones.ace_forearm_r_4].basis*model.rests[model.bones.ace_forearm_r_4].basis.inverse()
 						check(palm.x.dot(forearm)>cos(deg_to_rad(45)),"Service preparation avoids a sharply bent wrist")
 						check(absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))<deg_to_rad(15),"Service preparation carries twist through forearm")
 						if not serving:

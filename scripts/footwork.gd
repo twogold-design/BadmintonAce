@@ -10,7 +10,7 @@ static func reset(p: Dictionary) -> void:
 		"step_from":p.pos,"step_to":p.pos,"body_turn":0.0,"hip_turn":0.0,
 		"weight_shift":0.0,"split":0.0,"lunge":0.0,"preparation":0.0,"footwork":"ready",
 		"stroke_side":1.0,"swing_from":0.0,"reach_dir":Vector2.ZERO},true)
-	p.rescue_time=0.0;p.rescue_budget=.62;p.rescue_used=-1;p.rescue_hold=0.0
+	p.rescue_time=0.0;p.rescue_budget=.74;p.rescue_used=-1;p.rescue_hold=0.0
 	p.rescue_weight=0.0;p.rescue_x=0.0;p.rescue_y=0.0
 	p.gait_phase = 0.0
 	p.service_ready = 0.0
@@ -49,7 +49,7 @@ static func backhand_turn(p: Dictionary, index: int, shuttle: Vector3) -> float:
 	var local=(Vector2(shuttle.x,shuttle.y)-p.pos)*side
 	var facing=atan2(-local.x,-local.y)
 	var high=shuttle.z-float(p.jump)>1.9
-	var angle=clampf(facing+(.30 if high else 0.0),.65,1.85 if high else 1.45)
+	var angle=clampf(facing+(1.05 if high else 0.0),1.9 if high else .65,2.6 if high else 1.45)
 	return -side*angle
 
 static func hit(p: Dictionary, index: int, shuttle: Vector3, serving: bool) -> void:

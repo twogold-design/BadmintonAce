@@ -50,6 +50,39 @@ def refine_surfaces(gender):
  (OUT/(gender+'-surface-detail.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
  print('REFINED SURFACES',gender,sum(r['vertices_before'] for r in report),'->',sum(r['vertices_after'] for r in report),'vertices')
 
+def refine_forearms(rig):
+ # Four progressively rotated skin bones preserve the elbow and wrist volume.
+ # All share the original forearm bind axis; runtime applies 1/4..1 of the roll.
+ bpy.context.view_layer.objects.active=rig;rig.select_set(True)
+ bpy.ops.object.mode_set(mode='EDIT')
+ source=rig.data.edit_bones['lowerarm_r']
+ for i in range(1,5):
+  name='ace_forearm_r_'+str(i)
+  if name not in rig.data.edit_bones:
+   bone=rig.data.edit_bones.new(name);bone.head=source.head;bone.tail=source.tail;bone.roll=source.roll;bone.parent=source
+ bpy.ops.object.mode_set(mode='OBJECT')
+ source=rig.data.bones['lowerarm_r'];start=source.head_local;vector=source.tail_local-start
+ for obj in bpy.context.scene.objects:
+  if obj.type!='MESH' or obj.get('ace_forearm_skin',False):continue
+  original=obj.vertex_groups.get('lowerarm_r')
+  if not original:continue
+  groups=[original]+[obj.vertex_groups.get('ace_forearm_r_'+str(i)) or obj.vertex_groups.new(name='ace_forearm_r_'+str(i)) for i in range(1,5)]
+  count=0
+  for v in obj.data.vertices:
+   weight=next((g.weight for g in v.groups if g.group==original.index),0)
+   if weight<=0:continue
+   t=max(0,min(1,(v.co-start).dot(vector)/vector.length_squared))
+   slot=min(3,int(t*4));mix=t*4-slot
+   original.remove([v.index])
+   groups[slot].add([v.index],weight*(1-mix),'REPLACE')
+   groups[slot+1].add([v.index],weight*mix,'REPLACE');count+=1
+  obj['ace_forearm_skin']=True
+  print('FOREARM SKIN',obj.name,count)
+
+def write_measurements(rig,gender):
+ measures={b.name:{'head':[round(v,7) for v in (b.head_local.x,b.head_local.z,-b.head_local.y)],'tail':[round(v,7) for v in (b.tail_local.x,b.tail_local.z,-b.tail_local.y)],'parent':b.parent.name if b.parent else None} for b in rig.data.bones}
+ (OUT/(gender+'-rig.json')).write_text(json.dumps(measures,indent=2),encoding='utf-8')
+
 def regular_jersey(body,rig,female,cloth):
  # Cut a single connected garment from the original weighted topology, then
  # tailor a regular sports fit. The underlying anatomy and rig are unchanged.
@@ -344,9 +377,8 @@ def build(gender):
  for obj in [rig]+[o for o in bpy.context.scene.objects if o.type=='MESH']:
   obj.data.transform(rotation)
  refine_surfaces(gender)
- # Write rig measurements for animation from this model, not from old constants.
- measures={b.name:{'head':[round(v,7) for v in (b.head_local.x,b.head_local.z,-b.head_local.y)],'tail':[round(v,7) for v in (b.tail_local.x,b.tail_local.z,-b.tail_local.y)],'parent':b.parent.name if b.parent else None} for b in rig.data.bones}
- (OUT/(gender+'-rig.json')).write_text(json.dumps(measures,indent=2),encoding='utf-8')
+ refine_forearms(rig)
+ write_measurements(rig,gender)
  bpy.ops.object.select_all(action='DESELECT');rig.select_set(True)
  for obj in bpy.context.scene.objects:
   if obj.type=='MESH' and not obj.hide_viewport:obj.select_set(True)
@@ -355,13 +387,15 @@ def build(gender):
  bpy.ops.export_scene.gltf(filepath=str(OUT/(gender+'.glb')),export_format='GLB',use_selection=True,export_animations=False,export_skins=True)
  print('FRESH ATHLETE',gender,'GLB bytes',(OUT/(gender+'.glb')).stat().st_size)
 
-if '--refine-shoes' in sys.argv or '--refine-surfaces' in sys.argv:
+if any(flag in sys.argv for flag in ['--refine-shoes','--refine-surfaces','--refine-forearms']):
  for gender in ['male','female']:
   bpy.ops.wm.open_mainfile(filepath=str(SOURCE/(gender+'.blend')))
   rig=next(o for o in bpy.context.scene.objects if o.type=='ARMATURE')
   if '--refine-shoes' in sys.argv:
    for side in ['l','r']:flex_shoe(bpy.data.objects['CourtShoe_'+side],rig,side)
   if '--refine-surfaces' in sys.argv:refine_surfaces(gender)
+  if '--refine-forearms' in sys.argv:
+   refine_forearms(rig);write_measurements(rig,gender)
   bpy.ops.object.select_all(action='DESELECT');rig.select_set(True)
   for obj in bpy.context.scene.objects:
    if obj.type=='MESH' and not obj.hide_viewport:obj.select_set(True)

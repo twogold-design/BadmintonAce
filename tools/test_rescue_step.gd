@@ -27,13 +27,13 @@ func run():
 					var hit=false;var peak=0.0
 					for tick in range(43):
 						game._update_player(index,1.0/120,false);peak=maxf(peak,p.rescue_weight)
-						check(p.rescue_budget>=0 and p.rescue_budget<=.62,"Approach distance budget stays bounded")
+						check(p.rescue_budget>=0 and p.rescue_budget<=.74,"Approach distance budget stays bounded")
 						game._step_ball(1.0/120)
 						if game.phase!="rally":break
 						p.buffer=maxf(0,p.buffer-1.0/120)
 						if p.buffer>0 and game._try_hit(index,0):hit=true;break
 					check(hit,"Short lunge saves "+avatar+" P"+str(index+1)+" "+kind+" "+str(offset))
-					check(peak>.2 and p.pos.distance_to(initial)<.70,"Save uses a visible bounded physical step")
+					check(peak>.2 and p.pos.distance_to(initial)<.82,"Save uses a visible bounded physical step")
 					check(game.total_hits==11 and p.buffer==0,"One input produces exactly one return")
 					game.arena.sync(game)
 					check(game.arena.athletes[index].contact_error<.14,"Racket still contacts the real shuttle")

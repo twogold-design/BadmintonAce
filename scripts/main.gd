@@ -570,8 +570,8 @@ func _rescue_step(i: int, dt: float, movement: Vector2, is_ai: bool) -> Vector2:
 		p.rescue_time=0.0
 	if eligible and wants_shot and towards and p.rescue_time<=0 and p.rescue_used!=total_hits and to_ball.length()>.65 and to_ball.length()<(1.95 if net_ball else 1.85) and not _can_hit(i):
 		p.rescue_used=total_hits
-		p.rescue_time=.22
-		p.rescue_budget=.62
+		p.rescue_time=.24
+		p.rescue_budget=.74
 		# Predict only a few frames ahead; never chase the floor landing point.
 		var lead=Vector2(velocity.x,velocity.y)*.065
 		var direction=(to_ball+lead.limit_length(.55)).normalized()

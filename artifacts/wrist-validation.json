@@ -1,0 +1,11 @@
+{
+  "native_animation_suite": "14 tests passed using isolated pre-login main scene with current athlete, models, footwork and rescue limits",
+  "isolated_main_base": "b9bb8d7",
+  "backhand_checks": 4805,
+  "native_failures": 0,
+  "browser": "current integrated main, file and HTTP entry, challenge serve and AI return; passed",
+  "web_zip_bytes": 61227684,
+  "web_extracted_bytes": 100942650,
+  "root_index_html": true,
+  "zip_integrity": "passed"
+}
