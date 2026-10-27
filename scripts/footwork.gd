@@ -2,7 +2,7 @@ extends RefCounted
 ## Cosmetic foot plants and a hip-led stroke; never changes shot physics or input.
 
 const SWING_TIME = .48
-const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation","service_ready","receive_ready","service_long","heel_l","heel_r","bounce"]
+const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation","service_ready","receive_ready","service_long","heel_l","heel_r","bounce","rescue_weight","rescue_x","rescue_y"]
 
 static func reset(p: Dictionary) -> void:
 	p.merge({"foot_l":p.pos+Vector2(-.16,0),"foot_r":p.pos+Vector2(.16,0),
@@ -10,6 +10,8 @@ static func reset(p: Dictionary) -> void:
 		"step_from":p.pos,"step_to":p.pos,"body_turn":0.0,"hip_turn":0.0,
 		"weight_shift":0.0,"split":0.0,"lunge":0.0,"preparation":0.0,"footwork":"ready",
 		"stroke_side":1.0,"swing_from":0.0,"reach_dir":Vector2.ZERO},true)
+	p.rescue_time=0.0;p.rescue_budget=.62;p.rescue_used=-1;p.rescue_hold=0.0
+	p.rescue_weight=0.0;p.rescue_x=0.0;p.rescue_y=0.0
 	p.gait_phase = 0.0
 	p.service_ready = 0.0
 	p.receive_ready = 0.0
@@ -42,8 +44,20 @@ static func set_service_stance(p: Dictionary, index: int, receiving: bool) -> vo
 	p.foot_l=feet[0];p.foot_r=feet[1]
 	p.footwork = "receive_ready" if receiving else "serve_short"
 
+static func backhand_turn(p: Dictionary, index: int, shuttle: Vector3) -> float:
+	var side=1.0 if index==0 else -1.0
+	var local=(Vector2(shuttle.x,shuttle.y)-p.pos)*side
+	var facing=atan2(-local.x,-local.y)
+	var high=shuttle.z-float(p.jump)>1.9
+	var angle=clampf(facing+(.30 if high else 0.0),.65,1.85 if high else 1.45)
+	return -side*angle
+
 static func hit(p: Dictionary, index: int, shuttle: Vector3, serving: bool) -> void:
 	p.stroke_side = (1.0 if index==0 else -1.0) * (-1.0 if p.backhand else 1.0)
+	if p.backhand and not serving:
+		p.body_turn=backhand_turn(p,index,shuttle)
+		p.hip_turn=p.body_turn*.65
+		p.preparation=0.0
 	p.swing_from = p.body_turn
 	p.reach_dir = (Vector2(shuttle.x,shuttle.y)-p.pos).limit_length(1)
 	p.swing = SWING_TIME
@@ -84,9 +98,24 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		var amount=smoothstep(2.4,3.8,speed)
 		target_hip=lerpf(target_hip,side*heading,amount)
 		target_turn=lerpf(target_turn,side*heading*.72,amount)
+	var rescue_turn = p.rescue_time>0 or p.rescue_hold>0
+	if rescue_turn:
+		var rescue_direction=Vector2(p.rescue_x,p.rescue_y)*side
+		var heading=clampf(atan2(rescue_direction.x,-rescue_direction.y),-1.45,1.45)
+		target_turn=side*heading*.85
+		target_hip=target_turn*.65
+	var backhand_ready = rally and incoming and not (p.swing>0) and shuttle.y*side>.2 and (shuttle.x-p.pos.x)*side<-.25 and p.pos.distance_to(Vector2(shuttle.x,shuttle.y))<2.3
+	if backhand_ready:
+		target_turn=backhand_turn(p,index,shuttle)
+		target_hip=target_turn*.65
 	var shift = 0.0
 	var striking: bool = p.swing>0 and p.stroke!="serve"
-	if striking and p.stroke=="overhead":
+	if striking and p.backhand:
+		var t=clampf(1-p.swing/SWING_TIME,0,1)
+		var recovery=smoothstep(.40,1,t)
+		target_turn=lerpf(float(p.swing_from),0,recovery)
+		target_hip=target_turn*.65
+	elif striking and p.stroke=="overhead":
 		var t = clampf(1-p.swing/SWING_TIME,0,1)
 		var from: float = p.swing_from
 		# Hips open first, shoulders follow, then both return to face the net.
@@ -98,12 +127,14 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		# Transfer onto the front/left leg, hold through the follow-through,
 		# then ease back to centre instead of rocking straight back again.
 		shift = smoothstep(0,.40,t)*(1-smoothstep(.65,1,t))
-	p.body_turn = move_toward(p.body_turn,target_turn,dt*7.5)
+	p.body_turn = move_toward(p.body_turn,target_turn,dt*(12 if rescue_turn or backhand_ready else 7.5))
 	p.hip_turn = move_toward(p.hip_turn,target_hip,dt*(3.0 if speed<.6 and not striking else 9.0))
 	p.weight_shift = move_toward(p.weight_shift,shift,dt*10)
 	p.split = maxf(0,p.split-dt)
 	var net_reach = striking and p.stroke in ["net","lift"] and absf(p.pos.y)<3.2
-	var lunging = p.dash>0 or net_reach
+	var rescue = p.rescue_time>0 or p.rescue_hold>0
+	p.rescue_weight=move_toward(float(p.rescue_weight),1.0 if rescue else 0.0,dt*(12 if rescue else 5))
+	var lunging = p.dash>0 or net_reach or rescue
 	p.lunge = move_toward(p.lunge,1.0 if lunging else 0.0,dt*(8 if lunging else 4))
 	p.footwork = "lunge" if p.lunge>.25 else ("rear_chasse" if retreating else ("chasse" if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4 and speed<=2.6 else ("run" if speed>2.5 else ("adjust" if speed>.15 else "ready"))))
 	var chasse_target=(1-smoothstep(2.2,3.2,speed)) if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4 else 0.0
@@ -119,9 +150,11 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var left = -across*spread+across.orthogonal()*stagger
 	var right = across*spread-across.orthogonal()*stagger
 	if p.lunge>0:
-		var reach: Vector2 = p.reach_dir if net_reach else move
+		var reach: Vector2 = Vector2(p.rescue_x,p.rescue_y) if p.rescue_weight>.1 else (p.reach_dir if net_reach else move)
 		if reach.length()<.1: reach = Vector2(0,-side)
-		if side>0:
+		var right_leads=side>0
+		if p.rescue_weight>.1 and absf(reach.dot(across))>.35:right_leads=reach.dot(across)>0
+		if right_leads:
 			right += reach*.28*p.lunge
 			left -= reach*.14*p.lunge
 		else:

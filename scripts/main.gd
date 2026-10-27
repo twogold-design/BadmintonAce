@@ -528,9 +528,10 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 		elif p.dash <= 0: p.aim = Vector2.ZERO
 	if p.charge >= 0 and movement.length() > .1:
 		p.shot_aim = movement.normalized()
-	# Small reach assist only after a shot has been queued and movement is released.
-	# Never override manual movement or teleport the athlete to the shuttle.
-	if not is_ai and p.buffer>0 and movement.length()<.1 and last_hit!=i and phase=="rally":
+	# A queued low return can spend one short approach step per incoming shot.
+	# Manual movement away from the shuttle cancels it immediately.
+	movement = _rescue_step(i,dt,movement,is_ai)
+	if not is_ai and p.rescue_time<=0 and p.rescue_used!=total_hits and p.buffer>0 and movement.length()<.1 and last_hit!=i and phase=="rally":
 		var intercept = Vector2(ball.x,ball.y)+Vector2(velocity.x,velocity.y)*minf(.12,_time_to_height(2.2))
 		var delta_to_ball: Vector2 = intercept-p.pos
 		if delta_to_ball.length()<1.75 and ball.y*(1 if i==0 else -1)>.2:
@@ -542,13 +543,46 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 	if p.charge >= 0: speed *= .84
 	if p.jump > .1: speed *= .83
 	var desired: Vector2 = movement.limit_length() * speed
+	if p.rescue_time>0: desired = movement.limit_length()*minf(6.2,float(p.rescue_budget)/maxf(dt,.001))
 	if p.dash > 0: desired = p.aim * 10.5
 	p.vel = p.vel.move_toward(desired, dt * 32)
+	if p.rescue_time>0:p.vel=p.vel.limit_length(float(p.rescue_budget)/maxf(dt,.001))
 	p.pos += p.vel * dt
+	if p.rescue_time>0:
+		p.rescue_budget=maxf(0,p.rescue_budget-p.vel.length()*dt)
+		p.rescue_time=maxf(0,p.rescue_time-dt)
 	p.pos.x = clampf(p.pos.x, -3.75, 3.75)
 	p.pos.y = clampf(p.pos.y, .45, 7.4) if i == 0 else clampf(p.pos.y, -7.4, -.45)
 	p.step += p.vel.length() * dt * 2.6
 	FOOTWORK.update(p,i,dt,phase=="rally",last_hit!=i,ball,is_ai,(1 if i==server else 2) if phase=="serve" else 0)
+
+func _rescue_step(i: int, dt: float, movement: Vector2, is_ai: bool) -> Vector2:
+	var p = players[i]
+	p.rescue_hold=maxf(0,float(p.rescue_hold)-dt)
+	var side=1.0 if i==0 else -1.0
+	var to_ball=Vector2(ball.x,ball.y)-p.pos
+	var net_ball=absf(ball.y)<2.8 and ball.z<1.85
+	var fast_defense=Vector2(velocity.x,velocity.y).length()>7.0 and velocity.z<0 and ball.z<2.15
+	var eligible=not is_ai and phase=="rally" and last_hit!=i and ball.y*side>.2 and ball.z>.18 and velocity.z<.5 and (net_ball or fast_defense) and p.jump<.08 and p.dash<=0
+	var wants_shot=p.buffer>0 or p.charge>=0
+	var towards=movement.length()<.1 or movement.normalized().dot(to_ball.normalized())>.25
+	if not eligible or not wants_shot or not towards or p.rescue_budget<=0:
+		p.rescue_time=0.0
+	if eligible and wants_shot and towards and p.rescue_time<=0 and p.rescue_used!=total_hits and to_ball.length()>.65 and to_ball.length()<(1.95 if net_ball else 1.85) and not _can_hit(i):
+		p.rescue_used=total_hits
+		p.rescue_time=.22
+		p.rescue_budget=.62
+		# Predict only a few frames ahead; never chase the floor landing point.
+		var lead=Vector2(velocity.x,velocity.y)*.065
+		var direction=(to_ball+lead.limit_length(.55)).normalized()
+		p.rescue_x=direction.x;p.rescue_y=direction.y
+	if p.rescue_time>0:
+		var predicted=(to_ball+(Vector2(velocity.x,velocity.y)*.065).limit_length(.55)).normalized()
+		var steer=Vector2(p.rescue_x,p.rescue_y).lerp(predicted,1-exp(-18*dt)).normalized()
+		p.rescue_x=steer.x;p.rescue_y=steer.y
+		p.rescue_hold=.18
+		return movement.normalized() if movement.length()>.1 else Vector2(p.rescue_x,p.rescue_y)
+	return movement
 
 func _ai(i: int, dt: float) -> Vector2:
 	var p = players[i]

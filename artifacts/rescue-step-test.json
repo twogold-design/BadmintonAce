@@ -1,0 +1,150 @@
+{
+  "cases": [
+    {
+      "avatar": "male",
+      "contact_error": 0.0000000596046447753906,
+      "hit": true,
+      "kind": "net",
+      "offset": -1.2,
+      "player": 0,
+      "travel": 0.513187229633331
+    },
+    {
+      "avatar": "male",
+      "contact_error": 0.0000000596046447753906,
+      "hit": true,
+      "kind": "net",
+      "offset": 1.4,
+      "player": 0,
+      "travel": 0.513197243213654
+    },
+    {
+      "avatar": "male",
+      "contact_error": 0.0,
+      "hit": true,
+      "kind": "smash",
+      "offset": -1.2,
+      "player": 0,
+      "travel": 0.0798569917678833
+    },
+    {
+      "avatar": "male",
+      "contact_error": 0.000000119209289550781,
+      "hit": true,
+      "kind": "smash",
+      "offset": 1.4,
+      "player": 0,
+      "travel": 0.0798947811126709
+    },
+    {
+      "avatar": "male",
+      "contact_error": 0.0000000596046447753906,
+      "hit": true,
+      "kind": "net",
+      "offset": -1.2,
+      "player": 1,
+      "travel": 0.513187229633331
+    },
+    {
+      "avatar": "male",
+      "contact_error": 0.0000000596046447753906,
+      "hit": true,
+      "kind": "net",
+      "offset": 1.4,
+      "player": 1,
+      "travel": 0.513197243213654
+    },
+    {
+      "avatar": "male",
+      "contact_error": 0.0,
+      "hit": true,
+      "kind": "smash",
+      "offset": -1.2,
+      "player": 1,
+      "travel": 0.0798569917678833
+    },
+    {
+      "avatar": "male",
+      "contact_error": 0.000000119209289550781,
+      "hit": true,
+      "kind": "smash",
+      "offset": 1.4,
+      "player": 1,
+      "travel": 0.0798947811126709
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0,
+      "hit": true,
+      "kind": "net",
+      "offset": -1.2,
+      "player": 0,
+      "travel": 0.513187229633331
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0000000596046447753906,
+      "hit": true,
+      "kind": "net",
+      "offset": 1.4,
+      "player": 0,
+      "travel": 0.513197243213654
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0,
+      "hit": true,
+      "kind": "smash",
+      "offset": -1.2,
+      "player": 0,
+      "travel": 0.0798569917678833
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0,
+      "hit": true,
+      "kind": "smash",
+      "offset": 1.4,
+      "player": 0,
+      "travel": 0.0798947811126709
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0000000596046447753906,
+      "hit": true,
+      "kind": "net",
+      "offset": -1.2,
+      "player": 1,
+      "travel": 0.513187229633331
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0000000596046447753906,
+      "hit": true,
+      "kind": "net",
+      "offset": 1.4,
+      "player": 1,
+      "travel": 0.513197243213654
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0,
+      "hit": true,
+      "kind": "smash",
+      "offset": -1.2,
+      "player": 1,
+      "travel": 0.0798569917678833
+    },
+    {
+      "avatar": "female",
+      "contact_error": 0.0,
+      "hit": true,
+      "kind": "smash",
+      "offset": 1.4,
+      "player": 1,
+      "travel": 0.0798947811126709
+    }
+  ],
+  "checks": 360,
+  "failures": 0
+}

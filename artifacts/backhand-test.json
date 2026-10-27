@@ -1,0 +1,7 @@
+{
+  "checks": 1936,
+  "coverage": "male/female, P1/P2, net/lift/drive/overhead, contact through follow-through",
+  "failures": 0,
+  "max_wrist_twist_degrees": 0.0000146888775133695,
+  "min_hand_forearm_dot": 0.647329568862915
+}
