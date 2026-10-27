@@ -316,8 +316,10 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var height_adjust = chest.y-1.33
 	var ready_hand = Vector3(.28,1.18+height_adjust,-.26)
 	var ready_axis = Vector3(.10,.85,-.40).normalized()
-	var hand = lerp_vector(ready_hand,Vector3(.29,1.62+height_adjust,.22),prep)
-	var axis = ready_axis.slerp(Vector3(.05,-.70,.65).normalized(),prep)
+	# Preparation holds the head above the hand; racket drop belongs to the stroke,
+	# not the waiting pose. Keep the raised elbow and hand in the shoulder plane.
+	var hand = lerp_vector(ready_hand,Vector3(.32,1.57+height_adjust,.04),prep)
+	var axis = ready_axis.slerp(Vector3(.10,.96,.20).normalized(),prep)
 	var free_hand = lerp_vector(Vector3(-.28,1.17+height_adjust,-.20),Vector3(-.23,1.76+height_adjust,-.34),prep)
 	if serving:
 		free_hand = local_ball+Vector3(0,.04,0)
@@ -350,9 +352,9 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	elif not serving:
 		# A running athlete carries both arms with the turned torso. Keeping the
 		# hands in the old net-facing plane pulls upper arms through the sleeves.
-		hand = hand.lerp(chest+chest_basis*(hand-chest),1.0-prep)
-		free_hand = free_hand.lerp(chest+chest_basis*(free_hand-chest),1.0-prep)
-		axis = axis.slerp(chest_basis*axis,1.0-prep)
+		hand = chest+chest_basis*(hand-chest)
+		free_hand = chest+chest_basis*(free_hand-chest)
+		axis = chest_basis*axis
 	var right_shoulder = chest+chest_basis*(rest_at("upperarm_r")-rest_at("spine_03"))
 	var left_shoulder = chest+chest_basis*(rest_at("upperarm_l")-rest_at("spine_03"))
 	# Pole targets orient elbows through the shoulder plane, rather than rotating a flat arm.

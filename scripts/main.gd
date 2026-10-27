@@ -671,9 +671,23 @@ func _try_hit(i: int, shot: int) -> bool:
 			p.drop_count += 1
 	var target = Vector3(target_x, target_y * direction, .025)
 	var horizontal = Vector2(target.x - ball.x, target.y - ball.y)
+	if serving and shot==1:
+		# Solve the flight duration for six centimetres of tape clearance, retaining
+		# the diagonal service-box landing point and the normal shuttle physics.
+		var fraction = -ball.y / (target.y-ball.y)
+		var low = .4
+		var high = 1.25
+		for attempt in range(24):
+			var candidate = (low+high)*.5
+			var cross_t = -log(1.0-fraction*(1.0-exp(-DRAG*candidate)))/DRAG
+			var vz = (target.z-ball.z+.5*G*candidate*candidate)/candidate
+			var cross_z = ball.z+vz*cross_t-.5*G*cross_t*cross_t
+			if cross_z<1.61: low=candidate
+			else: high=candidate
+		travel = high
 	velocity = Vector3(horizontal.x * DRAG / (1.0 - exp(-DRAG * travel)), horizontal.y * DRAG / (1.0 - exp(-DRAG * travel)), (target.z - ball.z + .5 * G * travel * travel) / travel)
 	# Low defensive shots are lifted just enough to clear the tape. Late smashes can hit it.
-	if not smash:
+	if not smash and not (serving and shot==1):
 		var fraction = -ball.y / (target.y - ball.y)
 		if fraction > 0 and fraction < 1:
 			var cross_t = -log(1.0 - fraction * (1.0 - exp(-DRAG * travel))) / DRAG

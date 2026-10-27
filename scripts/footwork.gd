@@ -33,8 +33,12 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var selected_shot = int(p.charge) if p.charge>=0 else int(p.shot)
 	var overhead = rally and (p.charge>=0 or p.buffer>0) and selected_shot in [0,1,2] and shuttle.z>1.8
 	if is_ai and rally and incoming and shuttle.z>2.2: overhead = true
+	# Read an incoming rear-court high ball before the player holds a shot key.
+	var rear_ready = rally and incoming and p.pos.y*side>3.6 and shuttle.y*side>1.0 and shuttle.z>1.9
+	if rear_ready: overhead = true
 	if p.swing>0: overhead = false
-	p.preparation = move_toward(p.preparation,1.0 if overhead else 0.0,dt*6)
+	var preparation_target = (0.8 if rear_ready and p.charge<0 and p.buffer<=0 and not is_ai else 1.0) if overhead else 0.0
+	p.preparation = move_toward(p.preparation,preparation_target,dt*6)
 	var retreating = p.vel.y*side>.6
 	# Both athletes are right-handed: a forehand coil does not flip when the ball crosses the head.
 	var target_turn = side*(.85*p.preparation if p.preparation>.01 else (.40 if retreating else 0.0))
