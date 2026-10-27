@@ -189,18 +189,31 @@ def ponytail(rig,objects):
   scalp=max(components,key=len)
   remove=[v for c in components if c is not scalp and not (len(c)<80 and min(v.co.z for v in c)>1.67) for v in c]
   bmesh.ops.delete(bm,geom=remove,context='VERTS');bm.to_mesh(obj.data);bm.free()
+  # The fitted cap and fringe follow the skull as one rigid base.
+  for group in list(obj.vertex_groups):obj.vertex_groups.remove(group)
+  obj.vertex_groups.new(name='Head').add(list(range(len(obj.data.vertices))),1,'REPLACE')
+  for polygon in obj.data.polygons:polygon.use_smooth=True
+  smooth=obj.modifiers.new('Smooth gathered scalp','SUBSURF');smooth.levels=1;smooth.render_levels=1;apply(obj,smooth)
+ # Begin inside the rear cap, then gather outward before descending. The old
+ # tail began at the visible surface and its cap read as a detached plug.
+ control=[Vector(p) for p in [(0,.075,1.715),(0,.255,1.750),(0,.235,1.540),(0,.205,1.410)]]
+ def center_at(t):return control[0]*(1-t)**3+control[1]*(3*(1-t)**2*t)+control[2]*(3*(1-t)*t*t)+control[3]*t**3
+ def tangent_at(t):return ((control[1]-control[0])*(3*(1-t)**2)+(control[2]-control[1])*(6*(1-t)*t)+(control[3]-control[2])*(3*t*t)).normalized()
+ def radius_at(t):return (.023+.010*math.sin(math.pi*t))*(1-t**2.8)+.0015+.006*(1-smoothstep(0,.14,t))
+ tie_t=.09
+ anchor=center_at(tie_t)
  bpy.context.view_layer.objects.active=rig;rig.select_set(True)
  bpy.ops.object.mode_set(mode='EDIT')
- bone=rig.data.edit_bones.new('ponytail');bone.head=(0,.109,1.707);bone.tail=(0,.19,1.51);bone.parent=rig.data.edit_bones['Head']
+ bone=rig.data.edit_bones.new('ponytail');bone.head=anchor;bone.tail=center_at(.72);bone.parent=rig.data.edit_bones['Head']
  bpy.ops.object.mode_set(mode='OBJECT')
  hair=mat('Ace_Ponytail',(.035,.025,.025))
- vertices=[];faces=[];rings=26;sides=20
+ vertices=[];faces=[];rings=36;sides=24
  for k in range(rings):
   t=k/(rings-1)
-  center=Vector((0,.108+.105*math.sin(t*math.pi*.62),1.708-.305*t+.045*math.sin(math.pi*t)))
-  tangent=Vector((0,.105*math.pi*.62*math.cos(t*math.pi*.62),-.305+.045*math.pi*math.cos(math.pi*t))).normalized()
+  center=center_at(t)
+  tangent=tangent_at(t)
   across=Vector((1,0,0));other=tangent.cross(across).normalized()
-  radius=(.025+.014*math.sin(math.pi*t))*(1-t**3)*.98+.0015
+  radius=radius_at(t)
   for j in range(sides):
    a=j*math.tau/sides;r=radius*(1+.045*math.cos(a*7))
    vertices.append(center+across*(math.cos(a)*r)+other*(math.sin(a)*r*.85))
@@ -212,10 +225,12 @@ def ponytail(rig,objects):
  for p in mesh.polygons:p.use_smooth=True
  head=obj.vertex_groups.new(name='Head');tail=obj.vertex_groups.new(name='ponytail')
  for v in mesh.vertices:
-  weight=min(1,(v.index//sides)/5);head.add([v.index],1-weight,'REPLACE');tail.add([v.index],weight,'REPLACE')
+  # The whole gathered section, including the tie, stays attached to Head.
+  weight=smoothstep(.22,.60,(v.index//sides)/(rings-1));head.add([v.index],1-weight,'REPLACE');tail.add([v.index],weight,'REPLACE')
  bind(obj,rig)
- bpy.ops.mesh.primitive_torus_add(major_radius=.025,minor_radius=.004,major_segments=24,minor_segments=8,location=(0,.111,1.702))
- tie=bpy.context.object;tie.name='PonytailTie';tie.rotation_euler.x=.42
+ bpy.ops.mesh.primitive_torus_add(major_radius=radius_at(tie_t)+.001,minor_radius=.0035,major_segments=32,minor_segments=10,location=anchor)
+ tie=bpy.context.object;tie.name='PonytailTie';tie.rotation_mode='QUATERNION';tie.rotation_quaternion=tangent_at(tie_t).to_track_quat('Z','Y')
+ tie.scale.y=.85
  bpy.ops.object.transform_apply(location=True,rotation=True,scale=True)
  tie.data.materials.append(mat('HairTie',(.10,.14,.17)));tie.vertex_groups.new(name='Head').add(list(range(len(tie.data.vertices))),1,'REPLACE');bind(tie,rig)
 

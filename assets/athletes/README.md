@@ -6,6 +6,8 @@
 
 source/male.blend 与 source/female.blend 为可编辑项目；隐藏的 EditableFullBody 保留全身网格。source/base、source/hair、source/textures 是本地完整输入，不依赖下载地址长期有效。source/.gdignore 防止源文件进入网页包。
 
+女生发型的头皮和刘海完整绑定 Head；马尾从后脑头发内部延伸，发圈垂直于当地发束方向并贴合椭圆截面。前 22% 发束固定跟头，之后平滑过渡到 ponytail 骨骼；根部位置和方向从实际 Head 姿态继承，只有后半段轻摆。tools/capture_hair.gd 输出静止/转身跑动的正、侧、背面特写，便于检查连接。
+
 ## 重建
 
 从项目根目录运行 tools/environment.ps1 后，将 BLENDER_USER_CONFIG、BLENDER_USER_SCRIPTS 指向项目 .runtime 下的文件夹，再运行 Blender 4.4：

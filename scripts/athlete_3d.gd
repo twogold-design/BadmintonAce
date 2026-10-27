@@ -305,7 +305,8 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	if bones.has("ponytail"):
 		var head: Transform3D = desired[bones.Head]
 		var tail_at = head*rests[bones.Head].affine_inverse()*rest_at("ponytail")
-		pose("ponytail",tail_at,torso_basis*Basis.from_euler(Vector3(sin(time*5)*.025+clampf(p.vel.y*.015,-.08,.08),0,clampf(p.vel.x*.02,-.10,.10))))
+		var head_rotation = head.basis*rests[bones.Head].basis.inverse()
+		pose("ponytail",tail_at,head_rotation*Basis.from_euler(Vector3(sin(time*5)*.025+clampf(p.vel.y*.015,-.08,.08),0,clampf(p.vel.x*.02,-.10,.10))))
 	for foot_side in ["l","r"]:
 		var sign_x = -1.0 if foot_side=="l" else 1.0
 		var start = pelvis+hip_basis*(rest_at("thigh_"+foot_side)-rest_at("pelvis"))
