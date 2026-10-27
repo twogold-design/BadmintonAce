@@ -2,7 +2,7 @@ extends RefCounted
 ## Cosmetic foot plants and a hip-led stroke; never changes shot physics or input.
 
 const SWING_TIME = .48
-const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation","service_ready","receive_ready","service_long"]
+const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation","service_ready","receive_ready","service_long","heel_l","heel_r","bounce"]
 
 static func reset(p: Dictionary) -> void:
 	p.merge({"foot_l":p.pos+Vector2(-.16,0),"foot_r":p.pos+Vector2(.16,0),
@@ -14,6 +14,7 @@ static func reset(p: Dictionary) -> void:
 	p.service_ready = 0.0
 	p.receive_ready = 0.0
 	p.service_long = 0.0
+	p.heel_l=0.0;p.heel_r=0.0;p.bounce=0.0
 	p.gait_active = false
 	p.gait_blend = 0.0
 	p.gait_support = [true,false]
@@ -53,6 +54,10 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var side = 1.0 if index==0 else -1.0
 	var speed: float = p.vel.length()
 	var move: Vector2 = p.vel.normalized() if speed>.1 else Vector2.ZERO
+	# Settle naturally when stopping, serving or lunging; never lock onto toes.
+	p.heel_l=move_toward(float(p.heel_l),0,dt*2)
+	p.heel_r=move_toward(float(p.heel_r),0,dt*2)
+	p.bounce=move_toward(float(p.bounce),0,dt*.12)
 	p.service_ready = move_toward(float(p.service_ready),1.0 if service_role==1 else 0.0,dt*7)
 	p.receive_ready = move_toward(float(p.receive_ready),1.0 if service_role==2 else 0.0,dt*7)
 	if service_role==1 and p.charge>=0:
@@ -195,8 +200,8 @@ static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector
 	# Leaving the receiving stance at walking/chasse speed must keep support
 	# while the wider running cycle blends in.
 	duty=lerpf(.52,duty,smoothstep(2.4,3.2,speed))
-	var period=clampf(.54-speed*.035,.22,.52)
-	period=lerpf(period,clampf(.32/(speed*duty),.25,.65),blend)
+	var period=clampf(.46-speed*.028,.22,.46)
+	period=lerpf(period,clampf(.27/(speed*duty),.25,.58),blend)
 	# Stride follows ground speed and contact time. The short flight between
 	# running contacts avoids dragging a planted leg beyond its actual reach.
 	var half_stride=minf(.38,speed*period*duty*.5)
@@ -214,19 +219,23 @@ static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector
 	var feet=[p.foot_l,p.foot_r]
 	var previous=[p.foot_l,p.foot_r]
 	var lifts=[0.0,0.0]
+	var heels=[0.0,0.0]
 	for leg in range(2):
 		var phase=fmod(p.gait_phase+leg*.5,1.0)
 		var supporting=phase<duty
 		if supporting:
 			# Keep the last touchdown in world space throughout stance.
 			p.gait_from[leg]=feet[leg]
+			var support_t=phase/duty
+			heels[leg]=lerpf(.18,.08,smoothstep(0,.35,support_t))+.27*smoothstep(.45,1,support_t)
 		else:
 			if p.gait_support[leg]:p.gait_from[leg]=feet[leg]
 			var t=(phase-duty)/(1.0-duty)
 			var remaining=(1.0-phase)*period
 			var landing: Vector2=targets[leg]+direction*half_stride+p.vel*remaining
 			feet[leg]=p.gait_from[leg].lerp(landing,smoothstep(0,1,t))
-			lifts[leg]=sin(t*PI)*lerpf(.115,.075,blend)
+			lifts[leg]=sin(t*PI)*lerpf(.095,.055,blend)
+			heels[leg]=lerpf(.35,.12,smoothstep(0,.40,t))+.06*smoothstep(.70,1,t)
 		p.gait_support[leg]=supporting
 	for leg in range(2):
 		feet[leg]=previous[leg].move_toward(feet[leg],dt*(3.5+speed*2.0))
@@ -247,6 +256,10 @@ static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector
 			lifts[leg]=maxf(lifts[leg],.035)
 	p.foot_l=feet[0];p.foot_r=feet[1]
 	p.lift_l=lifts[0];p.lift_r=lifts[1]
+	var spring=(1-float(p.lunge))*(1-smoothstep(.05,.15,float(p.jump)))
+	p.heel_l=lerpf(float(p.heel_l),heels[0]*lerpf(1,.85,blend)*spring,1-exp(-40*dt))
+	p.heel_r=lerpf(float(p.heel_r),heels[1]*lerpf(1,.85,blend)*spring,1-exp(-40*dt))
+	p.bounce=lerpf(float(p.bounce),-.014*pow(sin(TAU*p.gait_phase),2)*spring,1-exp(-24*dt))
 	p.step_leg=0 if lifts[0]>lifts[1] else 1
 
 static func snapshot(p: Dictionary) -> Dictionary:

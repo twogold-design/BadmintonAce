@@ -4,7 +4,7 @@ Blender 4.4+: --background --factory-startup --python tools/build_athletes.py
 Keep original anatomical proportions and skin weights. Never force the new
 model into the dimensions of the discarded procedural characters.
 """
-import bpy,bmesh,math,json
+import bpy,bmesh,math,json,sys
 from pathlib import Path
 from mathutils import Vector,Matrix
 ROOT=Path(__file__).resolve().parents[1]
@@ -22,6 +22,33 @@ def bind(obj,rig):
 
 def smoothstep(a,b,value):
  t=max(0,min(1,(value-a)/(b-a)));return t*t*(3-2*t)
+
+def refine_surfaces(gender):
+ report=[]
+ for obj in bpy.context.scene.objects:
+  if obj.type!='MESH' or obj.hide_viewport:continue
+  before=len(obj.data.vertices)
+  if not obj.get('ace_surface_refined',False):
+   bpy.context.view_layer.objects.active=obj
+   # Imported custom normals retain the original low-poly facets even with
+   # smooth polygons. Recompute from the continuous, subdivided surface.
+   if obj.data.has_custom_normals:bpy.ops.mesh.customdata_custom_splitnormals_clear()
+   if obj.name!='MatchTShirt':
+    bm=bmesh.new();bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.000001)
+    bm.to_mesh(obj.data);bm.free()
+    sub=obj.modifiers.new('Refined athlete surface','SUBSURF')
+    sub.subdivision_type='CATMULL_CLARK';sub.levels=1;sub.render_levels=1
+    sub.boundary_smooth='PRESERVE_CORNERS';sub.uv_smooth='PRESERVE_BOUNDARIES'
+    apply(obj,sub)
+   for edge in obj.data.edges:edge.use_edge_sharp=False
+   for polygon in obj.data.polygons:polygon.use_smooth=True
+   if obj.data.has_custom_normals:bpy.ops.mesh.customdata_custom_splitnormals_clear()
+   obj.data.update();obj['ace_surface_refined']=True
+  obj.data.calc_loop_triangles()
+  report.append({'mesh':obj.name,'vertices_before':before,'vertices_after':len(obj.data.vertices),'triangles':len(obj.data.loop_triangles)})
+ (OUT/(gender+'-surface-detail.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
+ print('REFINED SURFACES',gender,sum(r['vertices_before'] for r in report),'->',sum(r['vertices_after'] for r in report),'vertices')
 
 def regular_jersey(body,rig,female,cloth):
  # Cut a single connected garment from the original weighted topology, then
@@ -154,6 +181,20 @@ def regular_jersey(body,rig,female,cloth):
  bmesh.ops.delete(bm,geom=covered,context='FACES');bm.to_mesh(body.data);bm.free()
  print('REGULAR JERSEY', 'female' if female else 'male',len(shirt.data.vertices),'vertices; hem',hem,'cuff',round(cuff,3))
  return shirt
+def flex_shoe(obj,rig,side):
+ # Keep the forefoot sole planted while the heel rolls up around the ball joint.
+ joint=rig.data.bones['ball_'+side]
+ forward=(joint.tail_local-joint.head_local).normalized()
+ bm=bmesh.new();bm.from_mesh(obj.data)
+ for offset in [-.018,0,.018]:
+  bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),dist=.000001,plane_co=joint.head_local+forward*offset,plane_no=forward,clear_outer=False,clear_inner=False)
+ bm.to_mesh(obj.data);bm.free();obj.data.update()
+ foot=obj.vertex_groups.get('foot_'+side) or obj.vertex_groups.new(name='foot_'+side)
+ toe=obj.vertex_groups.get('ball_'+side) or obj.vertex_groups.new(name='ball_'+side)
+ for v in obj.data.vertices:
+  weight=smoothstep(-.018,.018,(v.co-joint.head_local).dot(forward))
+  foot.add([v.index],1-weight,'REPLACE');toe.add([v.index],weight,'REPLACE')
+
 def shoe(body,rig,side,white,rubber):
  sx=1 if side=='l' else -1
  points=[v.co.copy() for v in body.data.vertices if v.co.z<.10 and v.co.x*sx>0]
@@ -170,6 +211,7 @@ def shoe(body,rig,side,white,rubber):
  for p in mesh.polygons:p.use_smooth=True;p.material_index=1 if p.center.z<.026 else 0
  bevel=obj.modifiers.new('Shoe edge','BEVEL');bevel.width=.008;bevel.segments=3;apply(obj,bevel)
  obj.vertex_groups.new(name='foot_'+side).add(list(range(len(obj.data.vertices))),1,'REPLACE');bind(obj,rig)
+ flex_shoe(obj,rig,side)
  return obj
 
 def ponytail(rig,objects):
@@ -301,6 +343,7 @@ def build(gender):
  rotation=Matrix.Rotation(math.pi,4,'Z')
  for obj in [rig]+[o for o in bpy.context.scene.objects if o.type=='MESH']:
   obj.data.transform(rotation)
+ refine_surfaces(gender)
  # Write rig measurements for animation from this model, not from old constants.
  measures={b.name:{'head':[round(v,7) for v in (b.head_local.x,b.head_local.z,-b.head_local.y)],'tail':[round(v,7) for v in (b.tail_local.x,b.tail_local.z,-b.tail_local.y)],'parent':b.parent.name if b.parent else None} for b in rig.data.bones}
  (OUT/(gender+'-rig.json')).write_text(json.dumps(measures,indent=2),encoding='utf-8')
@@ -312,4 +355,19 @@ def build(gender):
  bpy.ops.export_scene.gltf(filepath=str(OUT/(gender+'.glb')),export_format='GLB',use_selection=True,export_animations=False,export_skins=True)
  print('FRESH ATHLETE',gender,'GLB bytes',(OUT/(gender+'.glb')).stat().st_size)
 
-for gender in ['male','female']:build(gender)
+if '--refine-shoes' in sys.argv or '--refine-surfaces' in sys.argv:
+ for gender in ['male','female']:
+  bpy.ops.wm.open_mainfile(filepath=str(SOURCE/(gender+'.blend')))
+  rig=next(o for o in bpy.context.scene.objects if o.type=='ARMATURE')
+  if '--refine-shoes' in sys.argv:
+   for side in ['l','r']:flex_shoe(bpy.data.objects['CourtShoe_'+side],rig,side)
+  if '--refine-surfaces' in sys.argv:refine_surfaces(gender)
+  bpy.ops.object.select_all(action='DESELECT');rig.select_set(True)
+  for obj in bpy.context.scene.objects:
+   if obj.type=='MESH' and not obj.hide_viewport:obj.select_set(True)
+  bpy.context.view_layer.objects.active=rig
+  bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/(gender+'.blend')))
+  bpy.ops.export_scene.gltf(filepath=str(OUT/(gender+'.glb')),export_format='GLB',use_selection=True,export_animations=False,export_skins=True)
+  print('UPDATED ATHLETE',gender)
+else:
+ for gender in ['male','female']:build(gender)

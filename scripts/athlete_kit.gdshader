@@ -1,5 +1,6 @@
 shader_type spatial;
-render_mode diffuse_burley, specular_schlick_ggx;
+// Keep smooth skin lighting in WebGL; the mesh still casts court shadows.
+render_mode diffuse_burley, specular_schlick_ggx, shadows_disabled;
 uniform sampler2D skin_texture : source_color, filter_linear_mipmap;
 uniform vec4 jersey_color : source_color = vec4(.66,.79,.39,1.0);
 uniform float waist = .954;
@@ -11,6 +12,8 @@ void vertex() { garment=UV2; }
 void fragment() {
     vec3 skin=texture(skin_texture,UV).rgb;
     float x=abs(garment.x), y=garment.y;
+    // Covered foot geometry must not intersect the flexible court shoe.
+    if (y < .075) { discard; }
     float aa=max(fwidth(y),.0005);
     float shorts=band(y,.665,waist+.035,aa);
     float socks=1.0-smoothstep(.178-aa,.178+aa,y);

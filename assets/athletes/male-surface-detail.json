@@ -1,0 +1,44 @@
+[
+  {
+    "mesh": "Eyebrows",
+    "vertices_before": 646,
+    "vertices_after": 3078,
+    "triangles": 5904
+  },
+  {
+    "mesh": "Eyes",
+    "vertices_before": 556,
+    "vertices_after": 2308,
+    "triangles": 4608
+  },
+  {
+    "mesh": "SuperHero_Male",
+    "vertices_before": 6369,
+    "vertices_after": 32346,
+    "triangles": 64248
+  },
+  {
+    "mesh": "Hair_SimpleParted",
+    "vertices_before": 757,
+    "vertices_after": 3991,
+    "triangles": 7806
+  },
+  {
+    "mesh": "CourtShoe_l",
+    "vertices_before": 426,
+    "vertices_after": 1714,
+    "triangles": 3424
+  },
+  {
+    "mesh": "CourtShoe_r",
+    "vertices_before": 424,
+    "vertices_after": 1706,
+    "triangles": 3408
+  },
+  {
+    "mesh": "MatchTShirt",
+    "vertices_before": 14564,
+    "vertices_after": 14564,
+    "triangles": 29136
+  }
+]

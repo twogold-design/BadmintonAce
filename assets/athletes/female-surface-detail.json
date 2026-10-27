@@ -1,0 +1,56 @@
+[
+  {
+    "mesh": "Eyebrows",
+    "vertices_before": 912,
+    "vertices_after": 4448,
+    "triangles": 8880
+  },
+  {
+    "mesh": "Eyes",
+    "vertices_before": 556,
+    "vertices_after": 2308,
+    "triangles": 4608
+  },
+  {
+    "mesh": "Superhero_Female",
+    "vertices_before": 6334,
+    "vertices_after": 32288,
+    "triangles": 64148
+  },
+  {
+    "mesh": "Hair_Buns",
+    "vertices_before": 6111,
+    "vertices_after": 24265,
+    "triangles": 48192
+  },
+  {
+    "mesh": "SweptPonytail",
+    "vertices_before": 864,
+    "vertices_after": 3410,
+    "triangles": 6816
+  },
+  {
+    "mesh": "PonytailTie",
+    "vertices_before": 320,
+    "vertices_after": 1280,
+    "triangles": 2560
+  },
+  {
+    "mesh": "CourtShoe_l",
+    "vertices_before": 411,
+    "vertices_after": 1712,
+    "triangles": 3420
+  },
+  {
+    "mesh": "CourtShoe_r",
+    "vertices_before": 414,
+    "vertices_after": 1724,
+    "triangles": 3444
+  },
+  {
+    "mesh": "MatchTShirt",
+    "vertices_before": 15516,
+    "vertices_after": 15516,
+    "triangles": 31040
+  }
+]

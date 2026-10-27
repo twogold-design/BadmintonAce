@@ -23,3 +23,13 @@ BLENDER_BIN 设置为自己的 Blender 可执行文件。此命令会重建并�
 scripts/athlete_3d.gd 从实际骨骼尺寸计算动作。不要再把人体拉伸到旧角色尺寸。tools/build_athletes.py 的 regular_jersey 生成完整衣身、袖口与环形下摆，并保留原始蒙皮；下摆权重过渡到骨盆，袖口过渡到上臂，避免随大腿或肘部扯裂。衣服内侧有厚度，运行时省略覆盖的身体表面以减少穿插，隐藏的 EditableFullBody 保留完整人体。scripts/athlete_materials.gd 为球衣使用 jersey.gdshader，为皮肤、短裤、袜子使用 athlete_kit.gdshader；二者采用 UV2 休止态坐标。握拍约定：右手指向、拇指侧与掌面在文件内注释，拇指侧必须朝拍头；肘部使用共享弯曲平面。
 
 检查：tools/test_3d.gd 测试男女/P1/P2、接触位置、原始骨段长度、落脚、握拍方向与实际球拍变换；tools/capture_3d.gd 与 tools/motion_preview.gd 生成真实渲染预览。
+
+## 表面细化与轻盈步伐（2026-10-27）
+
+脸部、耳朵、四肢、头发和鞋子增加一层曲面细分，焊接重合顶点、清除旧自定义法线并重建平滑法线；已细分的 T 恤保留现有密度。可见源网格顶点总数：男生 23,742 → 59,707，女生 31,438 → 86,951（不含隐藏完整人体，导出时 UV/材质边界会拆分顶点）。具体统计见 male-surface-detail.json、female-surface-detail.json。关闭自动 LOD，避免近景误用简化网格。
+
+WebGL 兼容渲染下，皮肤与鞋材质关闭接收实时阴影，保留平滑灯光和向球场投影；球衣继续接收阴影。这是减少皮肤阴影折面的画质取舍，不是所有部位都具备自阴影。鞋子覆盖的原脚部通过休止态 UV2 遮罩剔除，减少穿插。
+
+鞋子在 ball_l/r 关节附近增加分段，平滑分配 foot/ball 权重；脚跟绕前脚掌抬起，鞋前部反向补偿，适应落脚、支撑与蹬离。运动姿势的 heel_l、heel_r 和 bounce 随联机状态同步。tools/test_forefoot.gd 验证男女/P1/P2、多方向多速度、支撑与停步恢复。
+
+可使用生成脚本的 --refine-surfaces 更新现有源文件的表面（对象标记防止重复细分），或 --refine-shoes 更新鞋子权重。完整重建默认包含这些步骤。

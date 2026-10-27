@@ -230,6 +230,20 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	var rest_pelvis = measured(avatar,"pelvis")
 	var hip_height = rest_pelvis.y-crouch-.025
 	var hip_basis = Basis(Vector3.UP,hip_turn)
+	var foot_bases={}
+	for foot_side in ["l","r"]:
+		var slot=foot_side if index==0 else ("r" if foot_side=="l" else "l")
+		var pitch=clampf(float(p.get("heel_"+slot,0)),0,.40)
+		var yaw=Basis(Vector3.UP,hip_turn+(-.06 if foot_side=="l" else .06))
+		var flex=Basis(Vector3.RIGHT,-pitch)
+		var pivot=measured(avatar,"ball_"+foot_side)-measured(avatar,"foot_"+foot_side)
+		# Rotate the heel about the metatarsal joint, preserving its floor anchor.
+		var correction=yaw*(pivot-flex*pivot)
+		if foot_side=="l":lf+=correction
+		else:rf+=correction
+		foot_bases[foot_side]=yaw*flex
+		foot_bases["toe_"+foot_side]=yaw
+	hip_height+=float(p.get("bounce",0))-.018*smoothstep(.35,1.5,p.vel.length())
 	var chest_basis = Basis(Vector3.UP,turn)*Basis(Vector3.RIGHT,lean)
 	# Small, supported weight transfer: load the racket-side leg in preparation,
 	# then settle over the anatomical left leg. Feet remain the support anchors.
@@ -258,7 +272,7 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 		chest += Basis(Vector3.UP,lerpf(hip_turn,turn,float(pair[1])))*Basis(Vector3.RIGHT,lean*float(pair[1]))*(measured(avatar,pair[0])-measured(avatar,previous))
 		previous=pair[0]
 	var shoulder = chest+chest_basis*(measured(avatar,"upperarm_r")-measured(avatar,"spine_03"))
-	return {"base":base,"pelvis":pelvis,"chest":chest,"shoulder":shoulder,"hip_basis":hip_basis,"chest_basis":chest_basis,"lf":lf,"rf":rf,"hip_turn":hip_turn,"turn":turn,"lean":lean}
+	return {"base":base,"pelvis":pelvis,"chest":chest,"shoulder":shoulder,"hip_basis":hip_basis,"chest_basis":chest_basis,"lf":lf,"rf":rf,"hip_turn":hip_turn,"turn":turn,"lean":lean,"foot_bases":foot_bases}
 
 static func can_reach(p: Dictionary, index: int, shuttle: Vector3) -> bool:
 	# Both avatars share the reachable zone; body size never grants an advantage.
@@ -330,7 +344,8 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		var start = pelvis+hip_basis*(rest_at("thigh_"+foot_side)-rest_at("pelvis"))
 		var target = lf if foot_side=="l" else rf
 		target.y += rest_at("foot_"+foot_side).y-.09
-		limb("thigh_"+foot_side,"calf_"+foot_side,"foot_"+foot_side,start,target,start+hip_basis*Vector3(sign_x*.08,-.2,-1),length_between("thigh_"+foot_side,"calf_"+foot_side),length_between("calf_"+foot_side,"foot_"+foot_side),Basis(Vector3.UP,hip_turn+sign_x*.06))
+		var ankle=limb("thigh_"+foot_side,"calf_"+foot_side,"foot_"+foot_side,start,target,start+hip_basis*Vector3(sign_x*.08,-.2,-1),length_between("thigh_"+foot_side,"calf_"+foot_side),length_between("calf_"+foot_side,"foot_"+foot_side),frame.foot_bases[foot_side])
+		pose("ball_"+foot_side,ankle+frame.foot_bases[foot_side]*(rest_at("ball_"+foot_side)-rest_at("foot_"+foot_side)),frame.foot_bases["toe_"+foot_side])
 	var height_adjust = chest.y-1.33
 	var ready_hand = Vector3(.28,1.18+height_adjust,-.26)
 	var ready_axis = Vector3(.10,.85,-.40).normalized()

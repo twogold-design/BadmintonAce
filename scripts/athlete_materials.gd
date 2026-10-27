@@ -17,3 +17,8 @@ static func apply(model: Node3D, index: int, female: bool) -> void:
 				jersey.set_shader_parameter("neck_height",1.4849 if female else 1.5205)
 				jersey.set_shader_parameter("sleeve",.2766 if female else .337)
 				part.set_surface_override_material(surface,jersey)
+
+			elif original is StandardMaterial3D and original.resource_name in ["Ace_Shoes", "Ace_Sole"]:
+				var shoe = original.duplicate() as StandardMaterial3D
+				shoe.disable_receive_shadows = true
+				part.set_surface_override_material(surface,shoe)
