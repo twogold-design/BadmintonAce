@@ -1,14 +1,14 @@
 {
   "ok": true,
-  "room": "D90851",
+  "room": "46ECC4",
   "score": [
     1,
     0
   ],
   "stall_recovery": {
-    "lag_ms": 49.3830161503634,
-    "catchups": 0,
-    "coalesced": 42
+    "lag_ms": 54.9679999999952,
+    "catchups": 1,
+    "coalesced": 40
   },
   "checks": [
     "male/female menu selection",

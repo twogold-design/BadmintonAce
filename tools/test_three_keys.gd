@@ -11,7 +11,10 @@ func setup_rally(height: float,index: int=0):
 	game.phase="rally";game.last_hit=1-index
 	game.players[index].pos=Vector2(0,3 if index==0 else -3)
 	game.FOOTWORK.reset(game.players[index])
-	game.ball=Vector3(0,game.players[index].pos.y,height)
+	# Input semantics use a playable shuttle in front of the racket side;
+	# a shuttle embedded in the torso cannot have a valid palm-up net pose.
+	var side=1.0 if index==0 else -1.0
+	game.ball=Vector3(.45*side,game.players[index].pos.y-.30*side,height)
 func press(code: int,down: bool):
 	var event=InputEventKey.new();event.physical_keycode=code;event.pressed=down
 	game._unhandled_key_input(event)

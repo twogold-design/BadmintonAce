@@ -33,8 +33,8 @@ func run():
 							p.body_turn = turn
 							p.hip_turn = turn*.6
 							p.stroke = "overhead" if height>1.8 else "lift"
-							p.backhand = x*side<0
 							var contact = Vector3(x,3.0*side,height+jump)
+							p.backhand = game.FOOTWORK.uses_backhand(p,index,contact)
 							game.phase = "rally"
 							game.last_hit = 1-index
 							game.ball = contact

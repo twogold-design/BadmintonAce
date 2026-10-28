@@ -1,0 +1,27 @@
+{
+  "cases": 40,
+  "failures": 0,
+  "frames_per_case": 61,
+  "maxima": {
+    "contact_error": 0.000288601324427873,
+    "elbow_step": 0.0505626238882542,
+    "forearm_rotation": 171.205726641215,
+    "racket_turn": 20.5185354271422,
+    "release_x": -0.449995517730713,
+    "release_y": -0.405392408370972,
+    "shaft_x": -0.86712247133255,
+    "shaft_y": -0.250253617763519,
+    "wrist_bend": 50.7751236806393
+  },
+  "worst": {
+    "contact_error": "female P1 x0.75 h2.05 jump0.00 frame0",
+    "elbow_step": "female P2 x-0.35 h2.05 jump0.00 frame12",
+    "forearm_rotation": "male P2 x0.75 h2.05 jump0.00 frame24",
+    "racket_turn": "male P1 x0.75 h2.05 jump0.00 frame8",
+    "release_x": "female P2 x-0.35 h2.05 jump0.00 frame24",
+    "release_y": "male P1 x-0.35 h2.05 jump0.00 frame24",
+    "shaft_x": "male P1 x-0.35 h2.05 jump0.00 frame24",
+    "shaft_y": "female P1 x-0.35 h2.05 jump0.00 frame24",
+    "wrist_bend": "female P2 x0.35 h2.05 jump0.00 frame22"
+  }
+}

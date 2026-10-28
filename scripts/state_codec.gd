@@ -2,15 +2,17 @@ extends RefCounted
 ## Full independent snapshots: no delta chains, so packet loss cannot corrupt a
 ## later frame. Gameplay coordinates/velocity keep float32 precision.
 const FOOTWORK = preload("res://scripts/footwork.gd")
+const VERSION = 2
 const PHASES = ["serve","rally","point","end"]
 const STROKES = ["overhead","net","drive","lift","serve"]
-const STYLES = ["ready","adjust","chasse","rear_chasse","run","scissor","lunge","serve_short","serve_long","receive_ready"]
+const STYLES = ["ready","adjust","chasse","rear_chasse","run","scissor","lunge","serve_short","serve_long","receive_ready","jump_load"]
 const SCALARS = ["stamina","jump","swing","landing","dash","buffer","charge_time","step","last_drop_x"]
 
-static func encode(packet: Dictionary) -> PackedByteArray:
+static func encode(packet: Dictionary, version: int = VERSION) -> PackedByteArray:
 	var out = StreamPeerBuffer.new()
+	var pose_keys=FOOTWORK.POSE_VALUES.slice(0,17) if version==1 else FOOTWORK.POSE_VALUES
 	out.put_u8(186)
-	out.put_u8(1)
+	out.put_u8(version)
 	out.put_utf8_string(str(packet.get("match","")))
 	out.put_u32(int(packet.get("seq",0)))
 	out.put_double(float(packet.time))
@@ -37,7 +39,7 @@ static func encode(packet: Dictionary) -> PackedByteArray:
 		out.put_u8(maxi(0,STYLES.find(motion.get("style","ready"))))
 		for key in ["left","right"]:
 			for value in motion.get(key,p.pos): out.put_float(float(value))
-		for key in FOOTWORK.POSE_VALUES: out.put_float(float(motion.get(key,0)))
+		for key in pose_keys: out.put_float(float(motion.get(key,0)))
 		out.put_u8(1 if motion.has("contact") else 0)
 		if motion.has("contact"):
 			for value in motion.contact: out.put_float(float(value))
@@ -46,7 +48,8 @@ static func encode(packet: Dictionary) -> PackedByteArray:
 static func decode(bytes: PackedByteArray) -> Dictionary:
 	# All supported frames are smaller than one UDP MTU. Reject malformed lengths
 	# before reading variable-size fields; never deserialize peer objects.
-	if bytes.size()<400 or bytes.size()>1200 or bytes[0]!=186 or bytes[1]!=1: return {}
+	if bytes.size()<400 or bytes.size()>1200 or bytes[0]!=186 or not int(bytes[1]) in [1,VERSION]: return {}
+	var pose_keys=FOOTWORK.POSE_VALUES.slice(0,17) if bytes[1]==1 else FOOTWORK.POSE_VALUES
 	var input = StreamPeerBuffer.new()
 	input.data_array = bytes
 	input.seek(2)
@@ -66,11 +69,12 @@ static func decode(bytes: PackedByteArray) -> Dictionary:
 	packet.paused = input.get_u8()!=0
 	packet.shots = [input.get_u16(),input.get_u16(),input.get_u16(),input.get_u16()]
 	var reason_size = input.get_u32()
-	if reason_size>128 or input.get_available_bytes()<reason_size+304: return {}
+	var player_bytes=84+pose_keys.size()*4
+	if reason_size>128 or input.get_available_bytes()<reason_size+player_bytes*2: return {}
 	packet.reason = input.get_utf8_string(reason_size)
 	packet.players = []
 	for i in range(2):
-		if input.get_available_bytes()<152: return {}
+		if input.get_available_bytes()<player_bytes: return {}
 		var p = {}
 		for key in ["pos","vel","shot_aim"]: p[key] = [input.get_float(),input.get_float()]
 		for key in SCALARS: p[key] = input.get_float()
@@ -84,7 +88,7 @@ static func decode(bytes: PackedByteArray) -> Dictionary:
 		p.stroke = STROKES[stroke]
 		p.motion = {"style":STYLES[style]}
 		for key in ["left","right"]: p.motion[key] = [input.get_float(),input.get_float()]
-		for key in FOOTWORK.POSE_VALUES: p.motion[key] = input.get_float()
+		for key in pose_keys: p.motion[key] = input.get_float()
 		if input.get_u8()!=0:
 			if input.get_available_bytes()<12: return {}
 			p.motion.contact = [input.get_float(),input.get_float(),input.get_float()]

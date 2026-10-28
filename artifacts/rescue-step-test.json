@@ -2,16 +2,16 @@
   "cases": [
     {
       "avatar": "male",
-      "contact_error": 0.000101251505839173,
+      "contact_error": 0.000000214907601048253,
       "hit": true,
       "kind": "net",
       "offset": -1.2,
       "player": 0,
-      "travel": 0.466570019721985
+      "travel": 0.612958133220673
     },
     {
       "avatar": "male",
-      "contact_error": 0.000030222317946027,
+      "contact_error": 0.000000320980831247653,
       "hit": true,
       "kind": "net",
       "offset": 1.4,
@@ -20,34 +20,34 @@
     },
     {
       "avatar": "male",
-      "contact_error": 0.0000956659569055773,
+      "contact_error": 0.000000238418579101563,
       "hit": true,
       "kind": "smash",
       "offset": -1.2,
       "player": 0,
-      "travel": 0.0798569917678833
+      "travel": 0.199936091899872
     },
     {
       "avatar": "male",
-      "contact_error": 0.0000622894513071515,
+      "contact_error": 0.000000168587391158326,
       "hit": true,
       "kind": "smash",
       "offset": 1.4,
       "player": 0,
-      "travel": 0.0798947811126709
+      "travel": 0.121847063302994
     },
     {
       "avatar": "male",
-      "contact_error": 0.000101330559118651,
+      "contact_error": 0.000000273142802598159,
       "hit": true,
       "kind": "net",
       "offset": -1.2,
       "player": 1,
-      "travel": 0.466570019721985
+      "travel": 0.612958133220673
     },
     {
       "avatar": "male",
-      "contact_error": 0.0000301166292047128,
+      "contact_error": 0.000000119209289550781,
       "hit": true,
       "kind": "net",
       "offset": 1.4,
@@ -56,34 +56,34 @@
     },
     {
       "avatar": "male",
-      "contact_error": 0.0000956659569055773,
+      "contact_error": 0.000000292001942625575,
       "hit": true,
       "kind": "smash",
       "offset": -1.2,
       "player": 1,
-      "travel": 0.0798569917678833
+      "travel": 0.199936091899872
     },
     {
       "avatar": "male",
-      "contact_error": 0.0000620371865807101,
+      "contact_error": 0.000000119209289550781,
       "hit": true,
       "kind": "smash",
       "offset": 1.4,
       "player": 1,
-      "travel": 0.0798947811126709
+      "travel": 0.121847063302994
     },
     {
       "avatar": "female",
-      "contact_error": 0.0000238365682889707,
+      "contact_error": 0.000000133280039449346,
       "hit": true,
       "kind": "net",
       "offset": -1.2,
       "player": 0,
-      "travel": 0.466570019721985
+      "travel": 0.612958133220673
     },
     {
       "avatar": "female",
-      "contact_error": 0.00000858803468872793,
+      "contact_error": 0.000000119209289550781,
       "hit": true,
       "kind": "net",
       "offset": 1.4,
@@ -92,34 +92,34 @@
     },
     {
       "avatar": "female",
-      "contact_error": 0.000075275449489709,
+      "contact_error": 0.000000266560078898692,
       "hit": true,
       "kind": "smash",
       "offset": -1.2,
       "player": 0,
-      "travel": 0.0798569917678833
+      "travel": 0.199936091899872
     },
     {
       "avatar": "female",
-      "contact_error": 0.0000331858209392522,
+      "contact_error": 0.000000119209289550781,
       "hit": true,
       "kind": "smash",
       "offset": 1.4,
       "player": 0,
-      "travel": 0.0798947811126709
+      "travel": 0.121847063302994
     },
     {
       "avatar": "female",
-      "contact_error": 0.0000238999764405889,
+      "contact_error": 0.000000266560078898692,
       "hit": true,
       "kind": "net",
       "offset": -1.2,
       "player": 1,
-      "travel": 0.466570019721985
+      "travel": 0.612958133220673
     },
     {
       "avatar": "female",
-      "contact_error": 0.00000857830764289247,
+      "contact_error": 0.000000266560078898692,
       "hit": true,
       "kind": "net",
       "offset": 1.4,
@@ -128,23 +128,23 @@
     },
     {
       "avatar": "female",
-      "contact_error": 0.000075275449489709,
+      "contact_error": 0.0,
       "hit": true,
       "kind": "smash",
       "offset": -1.2,
       "player": 1,
-      "travel": 0.0798569917678833
+      "travel": 0.199936091899872
     },
     {
       "avatar": "female",
-      "contact_error": 0.0000331858209392522,
+      "contact_error": 0.000000119209289550781,
       "hit": true,
       "kind": "smash",
       "offset": 1.4,
       "player": 1,
-      "travel": 0.0798947811126709
+      "travel": 0.121847063302994
     }
   ],
-  "checks": 360,
+  "checks": 400,
   "failures": 0
 }

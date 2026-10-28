@@ -10,6 +10,16 @@ func run():
 	game.set_process(false);game.set_physics_process(false);game.sound_on=false
 	for avatar in ["male","female"]:
 		for index in [0,1]:
+			# A/D changes travel direction, not the right-handed rear-court coil.
+			for lateral in [-4.5,4.5]:
+				game.start_game("ai")
+				var moving: Dictionary=game.players[index]
+				var facing=1.0 if index==0 else -1.0
+				moving.avatar=avatar;moving.pos=Vector2(0,5*facing);moving.vel=Vector2(lateral,0);moving.charge=-1;moving.swing=0;moving.jump=0
+				game.FOOTWORK.reset(moving)
+				for tick in range(60):
+					game.FOOTWORK.update(moving,index,1.0/120,true,true,Vector3(-.35*facing,4.7*facing,2.2),false)
+				check(moving.body_turn*facing>.5 and moving.hip_turn*facing>.3,"Lateral travel preserves the forehand rear-court preparation on both sides")
 			for x in [-.35,-.50,-.70,-.80]:
 				game.start_game("ai");game.phase="rally";game.last_hit=1-index
 				var side=1.0 if index==0 else -1.0
@@ -26,8 +36,10 @@ func run():
 				var model=game.arena.athletes[index];model.animate(p,index,contact,0)
 				check(model.contact_error<.003,"Selected overhead pose reaches actual shuttle with the string bed")
 				var low=Vector3(-.35*side,4.7*side,1.1)
-				check(game.FOOTWORK.uses_backhand(p,index,low),"Low left returns still use backhand")
+				check(not game.FOOTWORK.uses_backhand(p,index,low),"Nearby low left returns retain forehand")
 				p.jump=.7
-				check(game.FOOTWORK.uses_backhand(p,index,Vector3(-.35*side,4.7*side,2.2)),"Stroke choice uses shuttle height relative to jumping athlete")
+				check(not game.FOOTWORK.uses_backhand(p,index,Vector3(-.35*side,4.7*side,2.2)),"Jumping does not change a nearby forehand into a backhand")
+				for behind in [.2,.6,1.0]:
+					check(not game.FOOTWORK.uses_backhand(p,index,Vector3(-.35*side,(5+behind)*side,2.2)),"Behind-body shuttle with small lateral offset stays forehand")
 	print("ROUND HEAD SELECTION: ",checks," checks; ",failures," failures")
 	game.queue_free();quit(1 if failures else 0)

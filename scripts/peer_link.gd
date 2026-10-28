@@ -19,6 +19,7 @@ var received_bytes = 0
 var last_state_bytes = 0
 var skipped_realtime = 0
 var coalesced_states = 0
+var state_version = 1
 const CODEC = preload("res://scripts/state_codec.gd")
 
 func start(host: bool) -> void:
@@ -60,7 +61,7 @@ func send(packet: Dictionary) -> bool:
 		skipped_realtime += 1
 		return false
 	if not realtime and channel.get_buffered_amount()>65536: return false
-	var bytes = CODEC.encode(packet) if packet.type=="state" else JSON.stringify(packet).to_utf8_buffer()
+	var bytes = CODEC.encode(packet,state_version) if packet.type=="state" else JSON.stringify(packet).to_utf8_buffer()
 	if packet.type=="state": last_state_bytes = bytes.size()
 	if channel.put_packet(bytes) == OK:
 		sent_packets += 1
@@ -77,6 +78,7 @@ func poll(dt: float) -> void:
 		interrupted = 0
 		if not ready:
 			ready = true
+			send({"type":"codec","version":CODEC.VERSION})
 			opened.emit()
 		for channel in [control_channel,state_channel]:
 			var recent_states: Array[Dictionary] = []
@@ -85,6 +87,9 @@ func poll(dt: float) -> void:
 				received_bytes += bytes.size()
 				var packet = CODEC.decode(bytes) if not bytes.is_empty() and bytes[0]==186 else JSON.parse_string(bytes.get_string_from_utf8())
 				if packet is Dictionary and not packet.is_empty():
+					if packet.get("type","")=="codec":
+						state_version=clampi(int(packet.get("version",1)),1,CODEC.VERSION)
+						continue
 					received_packets += 1
 					if channel==state_channel and packet.get("type","")=="state":
 						recent_states.append(packet)
@@ -107,6 +112,7 @@ func close() -> void:
 	state_channel = null
 	control_channel = null
 	ready = false
+	state_version = 1
 	elapsed = 0
 	interrupted = 0
 	reported_failure = false

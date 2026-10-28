@@ -23,7 +23,7 @@ func _run() -> void:
 	for shot in range(4):
 		game.start_game("ai")
 		game.phase = "rally"
-		game.ball = Vector3(0,3,2.5)
+		game.ball = Vector3(.45,2.7,1.2) if shot==3 else Vector3(0,3,2.5)
 		game.players[0].pos = Vector2(0,3)
 		game.FOOTWORK.reset(game.players[0])
 		game.players[0].charge_time = .25
@@ -66,7 +66,7 @@ func _run() -> void:
 	game.phase = "rally"
 	game.players[0].stamina = 100
 	game._jump(0)
-	check(game.players[0].jump_v > 0 and game.players[0].stamina == 88,"jump uses stamina")
+	check(game.players[0].jump_load > 0 and game.players[0].jump_v == 0 and game.players[0].stamina == 88,"jump loads the legs and uses stamina once")
 	game._dash(0)
 	check(game.players[0].dash > 0 and game.players[0].stamina == 64,"dash uses stamina")
 	# Drop placement must vary, retain a chosen direction, and still clear the net.

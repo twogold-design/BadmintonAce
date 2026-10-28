@@ -2,7 +2,8 @@ extends RefCounted
 ## Cosmetic foot plants and a hip-led stroke; never changes shot physics or input.
 
 const SWING_TIME = .48
-const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation","service_ready","receive_ready","service_long","heel_l","heel_r","bounce","rescue_weight","rescue_x","rescue_y"]
+const JUMP_LOAD_TIME = .14
+const POSE_VALUES = ["body_turn","hip_turn","weight_shift","split","lift_l","lift_r","lunge","preparation","service_ready","receive_ready","service_long","heel_l","heel_r","bounce","rescue_weight","rescue_x","rescue_y","jump_crouch","jump_drive"]
 
 static func reset(p: Dictionary) -> void:
 	p.merge({"foot_l":p.pos+Vector2(-.16,0),"foot_r":p.pos+Vector2(.16,0),
@@ -17,6 +18,7 @@ static func reset(p: Dictionary) -> void:
 	p.receive_ready = 0.0
 	p.service_long = 0.0
 	p.heel_l=0.0;p.heel_r=0.0;p.bounce=0.0
+	p.jump_load=0.0;p.jump_crouch=0.0;p.jump_drive=0.0
 	p.gait_active = false
 	p.gait_blend = 0.0
 	p.gait_support = [true,false]
@@ -46,9 +48,10 @@ static func set_service_stance(p: Dictionary, index: int, receiving: bool) -> vo
 static func uses_backhand(p: Dictionary, index: int, shuttle: Vector3) -> bool:
 	var side=1.0 if index==0 else -1.0
 	var left=(shuttle.x-p.pos.x)*side
-	# Reach over the head with the forehand for nearby high balls on the left.
-	# Low defensive returns still use the earlier backhand changeover.
-	return left<(-.65 if shuttle.z-float(p.jump)>1.9 else -.25)
+	# Handedness is lateral, not height/depth dependent. Jumping or letting
+	# the shuttle pass behind the shoulder must not turn a nearby forehand
+	# into a backhand and rotate the player away from the net.
+	return left<-.65
 
 static func backhand_turn(p: Dictionary, index: int, shuttle: Vector3) -> float:
 	var side=1.0 if index==0 else -1.0
@@ -58,9 +61,24 @@ static func backhand_turn(p: Dictionary, index: int, shuttle: Vector3) -> float:
 	var angle=clampf(facing+(1.05 if high else 0.0),1.9 if high else .65,2.6 if high else 1.45)
 	return -side*angle
 
+static func underarm_turn(p: Dictionary, index: int, shuttle: Vector3, backhand: bool) -> float:
+	var side=1.0 if index==0 else -1.0
+	var local=(Vector2(shuttle.x,shuttle.y)-p.pos)*side
+	var handed=-1.0 if backhand else 1.0
+	# Turn only as far as needed to retain the racket on its anatomical side.
+	# Close central/left forehands need shoulder space, not an inverted wrist.
+	if (not backhand and local.x>=.35) or local.y>0:return 0.0
+	var facing=atan2(-local.x,-local.y)
+	var offset=asin(clampf(.35/maxf(.01,local.length()),0,.95))
+	return -side*clampf(facing+handed*offset,-1.5,1.5)
+
 static func hit(p: Dictionary, index: int, shuttle: Vector3, serving: bool) -> void:
 	p.stroke_side = (1.0 if index==0 else -1.0) * (-1.0 if p.backhand else 1.0)
-	if p.backhand and not serving:
+	if not serving and str(p.stroke) in ["net","lift"]:
+		p.body_turn=underarm_turn(p,index,shuttle,p.backhand)
+		p.hip_turn=p.body_turn*.65
+		p.preparation=0.0
+	elif p.backhand and not serving:
 		p.body_turn=backhand_turn(p,index,shuttle)
 		p.hip_turn=p.body_turn*.65
 		p.preparation=0.0
@@ -92,13 +110,17 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var preparation_target = (0.8 if rear_ready and p.charge<0 and p.buffer<=0 and not is_ai else 1.0) if overhead else 0.0
 	p.preparation = move_toward(p.preparation,preparation_target,dt*6)
 	var retreating = p.vel.y*side>.6
+	var lateral=absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4
+	var lateral_chasse=lateral and speed<=5.5 and p.dash<=0
 	# Both athletes are right-handed: a forehand coil does not flip when the ball crosses the head.
 	var target_turn = side*(.85*p.preparation if p.preparation>.01 else (.40 if retreating else 0.0))
 	if service_role>0: target_turn = side*(.30 if service_role==2 else lerpf(.08,.14,p.service_long))
 	var target_hip = target_turn*.63
-	# Fast lateral travel is a turned running step; keeping the hips square to
-	# the net while translating at sprint speed makes both legs trail sideways.
-	if speed>2.4 and not overhead and not retreating and p.swing<=0:
+	# Normal A/D travel remains net-facing, including full walking speed.
+	# Rearcourt preparation is a separate shoulder coil, not movement heading.
+	if lateral_chasse and p.preparation<.05 and p.swing<=0 and service_role==0:
+		target_turn=0.0;target_hip=0.0
+	elif speed>2.4 and not overhead and p.preparation<.05 and not retreating and p.swing<=0:
 		var local_move=move*side
 		var heading=clampf(atan2(local_move.x,-local_move.y),-1.48,1.48)
 		var amount=smoothstep(2.4,3.8,speed)
@@ -114,9 +136,13 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	if backhand_ready:
 		target_turn=backhand_turn(p,index,shuttle)
 		target_hip=target_turn*.65
+	var underarm_ready=rally and incoming and p.swing<=0 and shuttle.z-float(p.jump)<=1.9 and selected_shot in [0,1,3] and shuttle.y*side>.2 and p.pos.distance_to(Vector2(shuttle.x,shuttle.y))<1.8
+	if underarm_ready:
+		target_turn=underarm_turn(p,index,shuttle,uses_backhand(p,index,shuttle))
+		target_hip=target_turn*.65
 	var shift = 0.0
 	var striking: bool = p.swing>0 and p.stroke!="serve"
-	if striking and p.backhand:
+	if striking and (p.backhand or p.stroke in ["net","lift"]):
 		var t=clampf(1-p.swing/SWING_TIME,0,1)
 		var recovery=smoothstep(.40,1,t)
 		target_turn=lerpf(float(p.swing_from),0,recovery)
@@ -142,8 +168,8 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	p.rescue_weight=move_toward(float(p.rescue_weight),1.0 if rescue else 0.0,dt*(12 if rescue else 5))
 	var lunging = p.dash>0 or net_reach or rescue
 	p.lunge = move_toward(p.lunge,1.0 if lunging else 0.0,dt*(8 if lunging else 4))
-	p.footwork = "lunge" if p.lunge>.25 else ("rear_chasse" if retreating else ("chasse" if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4 and speed<=2.6 else ("run" if speed>2.5 else ("adjust" if speed>.15 else "ready"))))
-	var chasse_target=(1-smoothstep(2.2,3.2,speed)) if absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4 else 0.0
+	p.footwork = "lunge" if p.lunge>.25 else ("chasse" if lateral_chasse else ("rear_chasse" if retreating else ("run" if speed>2.5 else ("adjust" if speed>.15 else "ready"))))
+	var chasse_target=1.0 if lateral_chasse else 0.0
 	p.gait_blend=move_toward(float(p.gait_blend),chasse_target,dt*4)
 	if p.jump>.1: p.footwork = "scissor" if striking and p.stroke=="overhead" else "jump"
 	# A modest front/back stagger retains a broad support base after turning
@@ -173,6 +199,12 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var old_lifts=[p.lift_l,p.lift_r]
 	p.lift_l = 0.0
 	p.lift_r = 0.0
+	if float(p.get("jump_load",0))>0:
+		p.step_leg=-1;p.gait_active=false
+		p.heel_l=maxf(p.heel_l,float(p.jump_drive)*.25)
+		p.heel_r=maxf(p.heel_r,float(p.jump_drive)*.25)
+		p.footwork="jump_load"
+		return
 	if p.jump>.08:
 		# Airborne scissor kick exchanges the fore/aft positions without sliding a planted foot.
 		var scissor = p.weight_shift*.18
@@ -235,12 +267,13 @@ static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector
 	var speed: float=p.vel.length()
 	var direction: Vector2=p.vel.normalized()
 	var blend: float=p.gait_blend
-	var duty=lerpf(lerpf(.42,.34,smoothstep(5.5,7,speed)),.52,blend)
+	var chasse_duty=lerpf(.52,.32,smoothstep(2.2,4.5,speed))
+	var duty=lerpf(lerpf(.42,.34,smoothstep(5.5,7,speed)),chasse_duty,blend)
 	# Leaving the receiving stance at walking/chasse speed must keep support
 	# while the wider running cycle blends in.
 	duty=lerpf(.52,duty,smoothstep(2.4,3.2,speed))
 	var period=clampf(.46-speed*.028,.22,.46)
-	period=lerpf(period,clampf(.27/(speed*duty),.25,.58),blend)
+	period=lerpf(period,clampf(.27/(speed*duty),.22,.58),blend)
 	# Stride follows ground speed and contact time. The short flight between
 	# running contacts avoids dragging a planted leg beyond its actual reach.
 	var half_stride=minf(.38,speed*period*duty*.5)

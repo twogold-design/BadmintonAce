@@ -16,7 +16,7 @@ func check(ok: bool, label: String) -> void:
 func hit(i: int, shot: int, height: float, aim: Vector2 = Vector2.ZERO) -> Vector2:
 	var side = 1.0 if i == 0 else -1.0
 	game.phase = "rally"
-	game.ball = Vector3(0,3*side,height)
+	game.ball = Vector3(.45*side,2.7*side,height) if height<1.9 else Vector3(0,3*side,height)
 	game.players[i].pos = Vector2(0,3*side)
 	game.FOOTWORK.reset(game.players[i])
 	game.players[i].aim = Vector2.ZERO
@@ -32,6 +32,9 @@ func _run() -> void:
 	game.set_process(false)
 	game.set_physics_process(false)
 	game.sound_on = false
+	# Hit-quality scatter uses the global RNG in addition to lane selection.
+	# Seed both so this integrated flight regression is reproducible.
+	seed(72491)
 	game.shot_rng.seed = 72491
 	var report = []
 	# Integrate actual flight for both players; successful shots must clear the net

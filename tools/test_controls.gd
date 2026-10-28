@@ -81,7 +81,7 @@ func _run() -> void:
 	check(game.players[1].jump == 0 and game.players[1].landing > 0,"landing triggers recovery pose")
 	for shot in range(4):
 		setup_rally()
-		game.ball = Vector3(0,3,2.5)
+		game.ball = Vector3(.45,2.7,1.2) if shot==3 else Vector3(0,3,2.5)
 		check(game._try_hit(0,shot),"shot accepted")
 		check(game.players[0].stroke == ["overhead","overhead","overhead","lift"][shot],"shot and contact height select animation")
 		for tick in range(300):

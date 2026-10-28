@@ -661,10 +661,9 @@ func _notification(what: int) -> void:
 
 func _jump(i: int) -> void:
 	var p = players[i]
-	if p.jump <= 0 and p.stamina >= 12 and phase == "rally":
-		p.jump_v = 4.7
+	if p.jump <= 0 and p.jump_v<=0 and float(p.get("jump_load",0))<=0 and p.stamina >= 12 and phase == "rally":
+		p.jump_load = FOOTWORK.JUMP_LOAD_TIME
 		p.stamina -= 12
-		_sfx("swoosh")
 
 func _dash(i: int) -> void:
 	var p = players[i]
@@ -746,6 +745,18 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 	p.dash = maxf(0, p.dash - dt)
 	p.landing = maxf(0,p.landing-dt)
 	p.stamina = minf(100, p.stamina + dt * (14 if p.vel.length() < 1 else 8))
+	p.jump_drive=move_toward(float(p.jump_drive),0,dt*6)
+	if float(p.jump_load)>0:
+		if phase!="rally":
+			p.jump_load=0.0;p.jump_crouch=0.0;p.jump_drive=0.0
+		else:
+			p.jump_load=maxf(0,float(p.jump_load)-dt)
+			var load_elapsed=FOOTWORK.JUMP_LOAD_TIME-float(p.jump_load)
+			p.jump_crouch=smoothstep(0,.085,load_elapsed)*smoothstep(0,.055,float(p.jump_load))
+			p.jump_drive=smoothstep(.085,FOOTWORK.JUMP_LOAD_TIME,load_elapsed)
+			if p.jump_load<=0:
+				p.jump_v=4.7
+				_sfx("swoosh")
 	if p.jump > 0 or p.jump_v > 0:
 		p.jump += p.jump_v * dt
 		p.jump_v -= 12.0 * dt
@@ -776,6 +787,11 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 	if not is_ai and p.rescue_time<=0 and p.rescue_used!=total_hits and p.buffer>0 and movement.length()<.1 and last_hit!=i and phase=="rally":
 		var intercept = Vector2(ball.x,ball.y)+Vector2(velocity.x,velocity.y)*minf(.12,_time_to_height(2.2))
 		var delta_to_ball: Vector2 = intercept-p.pos
+		if delta_to_ball.length()<.45 and ball.z-p.jump<1.9 and int(p.shot) in [0,1,3] and not _can_hit(i):
+			# A close net return needs space beside/in front of the body.
+			# The existing queued-shot step yields that space instead of folding a wrist.
+			var side=1.0 if i==0 else -1.0
+			delta_to_ball=intercept-Vector2(.35*side,-.35*side)-p.pos
 		if delta_to_ball.length()<1.75 and ball.y*(1 if i==0 else -1)>.2:
 			movement = delta_to_ball.normalized()*.65
 	if phase != "rally": movement = Vector2.ZERO
@@ -784,6 +800,7 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 	if p.stamina < 18: speed *= .78
 	if p.charge >= 0: speed *= .84
 	if p.jump > .1: speed *= .83
+	if float(p.jump_load)>0:speed*=.5
 	var desired: Vector2 = movement.limit_length() * speed
 	if p.rescue_time>0: desired = movement.limit_length()*minf(6.2,float(p.rescue_budget)/maxf(dt,.001))
 	if p.dash > 0: desired = p.aim * 10.5
@@ -838,6 +855,7 @@ func _ai(i: int, dt: float) -> Vector2:
 		# Intercept the descending shuttle at racket height, not its floor landing.
 		var t = _time_to_height(1.6)
 		target = Vector2(ball.x, ball.y) + Vector2(velocity.x, velocity.y) * ((1.0 - exp(-DRAG * t)) / DRAG)
+		target-=Vector2(.40*sign_y,-.35*sign_y)
 		target.x = clampf(target.x, -2.65, 2.65)
 		target.y = clampf(target.y * sign_y, .7, 6.6) * sign_y
 		var dist = p.pos.distance_to(Vector2(ball.x, ball.y))
@@ -869,16 +887,19 @@ func _landing() -> Vector2:
 	var t = _time_to_height(0)
 	return Vector2(ball.x, ball.y) + Vector2(velocity.x, velocity.y) * (1.0 - exp(-DRAG * t)) / DRAG
 
-func _can_hit(i: int) -> bool:
+func _can_hit(i: int, shot: int = -1) -> bool:
 	if phase == "serve": return i == server and phase_time > .2
 	if phase != "rally" or last_hit == i: return false
 	var p = players[i]
 	if ball.y * (1 if i == 0 else -1) < .12: return false
 	var reach = 1.40 + (.28 if p.dash > 0 else 0.0)
-	return p.pos.distance_to(Vector2(ball.x, ball.y)) <= reach and ball.z >= .12 and ball.z <= 2.85 + p.jump and ARENA_3D.ATHLETE_3D.can_reach(p,i,ball)
+	if shot<0:shot=int(p.charge) if p.charge>=0 else int(p.shot)
+	var height=ball.z-p.jump
+	var stroke="overhead" if (shot==2 and height>1.85) or (shot in [0,1] and height>1.9) else ("net" if shot==1 else ("lift" if shot in [0,3] else "drive"))
+	return p.pos.distance_to(Vector2(ball.x, ball.y)) <= reach and ball.z >= .12 and ball.z <= 2.85 + p.jump and ARENA_3D.ATHLETE_3D.can_reach(p,i,ball,stroke)
 
 func _try_hit(i: int, shot: int) -> bool:
-	if not _can_hit(i): return false
+	if not _can_hit(i,shot): return false
 	var p = players[i]
 	var serving = phase == "serve"
 	if serving:
@@ -1886,6 +1907,7 @@ func _network_process(dt: float) -> void:
 		state.peer_sent_bytes = peer.sent_bytes
 		state.peer_received_bytes = peer.received_bytes
 		state.snapshot_bytes = peer.last_state_bytes
+		state.snapshot_version = peer.state_version
 		state.net_rtt_ms = net_rtt
 		state.fps = Engine.get_frames_per_second()
 		state.remote_lag_ms = maxf(0,match_time-remote_view.playhead)*1000 if net_role=="guest" else 0.0

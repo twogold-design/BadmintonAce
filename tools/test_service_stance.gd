@@ -10,6 +10,34 @@ func run():
 	game=load("res://main.tscn").instantiate();root.add_child(game)
 	game.set_process(false);game.set_physics_process(false);game.sound_on=false
 	for avatar in ["male","female"]:
+		for index in [0,1]:
+			for movement in [Vector2.ZERO,Vector2(4.5,0),Vector2(0,-4.5)]:
+				game.start_game("ai")
+				var p:Dictionary=game.players[index];game.FOOTWORK.reset(p)
+				p.avatar=avatar;p.jump=0;p.swing=0;p.vel=movement*(1 if index==0 else -1)
+				var model=game.arena.athletes[index]
+				var previous=Basis.IDENTITY
+				# Ordinary rally readiness through receiving stance: no flat-racket
+				# branch may reappear as the receive flag fades after the serve.
+				for tick in range(61):
+					p.receive_ready=float(tick)/60
+					model.animate(p,index,Vector3(0,0,2),0)
+					var frame=game.ARENA_3D.ATHLETE_3D.body_frame(p,index)
+					var elbow=frame.chest_basis.inverse()*(model.joint_points.lowerarm_r-model.joint_points.upperarm_r)
+					check(elbow.x>.08 and elbow.z<.04,"Waiting racket elbow stays open and in front of shoulder")
+					var forearm=(model.joint_points.hand_r-model.joint_points.lowerarm_r).normalized()
+					var palm=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
+					var lower=model.poses[model.bones.ace_forearm_r_4].basis*model.rests[model.bones.ace_forearm_r_4].basis.inverse()
+					check(palm.x.dot(forearm)>cos(deg_to_rad(35)),"Waiting wrist follows forearm")
+					check(absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))<deg_to_rad(15),"Waiting wrist does not carry residual forearm twist")
+					var face=frame.chest_basis.inverse()*model.racket_basis_current.z
+					check(face.x>.25 and face.z>.25,"Waiting basic forehand grip keeps the string bed oblique")
+					var scale=model.rest_at("hand_r").distance_to(model.rest_at("middle_01_r"))/.1165
+					var socket=model.joint_points.hand_r+palm*model.PALM_ANCHOR*scale
+					var handle=model.joint_points.hand_r+model.racket_basis_current*(model.racket_mount_current+Vector3(0,.035,0))
+					check(socket.distance_to(handle)<.001,"Ready V grip seats the handle in the palm")
+					if tick>0:check(previous.get_rotation_quaternion().angle_to(palm.get_rotation_quaternion())<deg_to_rad(5),"Receive readiness changes wrist continuously")
+					previous=palm
 		for server in [0,1]:
 			for parity in [0,1]:
 				for shot in [1,0]:
@@ -46,7 +74,7 @@ func run():
 							var face=frame.chest_basis.inverse()*model.racket_basis_current.z
 							# Check the signed direction in the player's frame: an absolute
 							# angle accepts the opposite grip rotation as equally correct.
-							check(face.x>.25 and face.z>.25,"Receiver bevel grip turns in the correct direction: "+avatar+" "+str(face))
+							check(face.x>.25 and face.z>.25,"Receiver basic forehand grip turns in the correct direction: "+avatar+" "+str(face))
 							var hand_scale=model.rest_at("hand_r").distance_to(model.rest_at("middle_01_r"))/.1165
 							var socket=model.joint_points.hand_r+palm*model.PALM_ANCHOR*hand_scale
 							var handle=model.joint_points.hand_r+model.racket_basis_current*(model.racket_mount_current+Vector3(0,.035,0))
