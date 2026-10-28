@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "checks": [
+    "register/login",
+    "wrong password",
+    "Godot first victory +5",
+    "repeat victory +0",
+    "second athlete +5",
+    "cross-client account restore",
+    "homepage points leaderboard",
+    "eight opponent cards",
+    "female challenger",
+    "session reload"
+  ],
+  "errors": []
+}

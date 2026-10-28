@@ -18,11 +18,12 @@ func run():
 			model.build(avatar,index)
 			var side=1.0 if index==0 else -1.0
 			for stroke in ["net","lift","drive","overhead"]:
-				for offset in [-.35,-.65,-.85]:
+				for offset in [-.35,-.65,-.70,-.85]:
 					var p={"avatar":avatar,"pos":Vector2(0,3*side),"vel":Vector2.ZERO,"jump":0.0,"swing":0.0,"charge":-1,"shot":0,"buffer":0.0,"dash":0.0,"landing":0.0,"backhand":true,"stroke":stroke}
 					FOOTWORK.reset(p)
 					var height=2.2 if stroke=="overhead" else (1.5 if stroke=="drive" else 1.0)
 					var contact=Vector3(offset*side,2.7*side,height)
+					if not FOOTWORK.uses_backhand(p,index,contact):continue
 					if not ATHLETE.can_reach(p,index,contact):continue
 					FOOTWORK.hit(p,index,contact,false)
 					check(absf(p.body_turn)>.6 and absf(p.hip_turn)>.3,"Backhand impact turns shoulder and pelvis toward the shuttle")

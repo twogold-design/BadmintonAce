@@ -1,12 +1,12 @@
 {
   "ok": true,
-  "address": "ws://10.11.179.27:18766/ws",
+  "address": "ws://127.0.0.1:18766/ws",
   "entry": "local file",
   "server": "standalone EXE",
   "checks": [
-    "lobby male/female selection",
+    "menu male/female selection",
     "male host / female guest synchronized",
-    "room list",
+    "live lobby room list",
     "password rejected",
     "password accepted",
     "two clients join",

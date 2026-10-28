@@ -12,6 +12,8 @@ $html = $html.Replace('<html lang="en">','<html lang="zh-CN">')
 $html = $html.Replace('<script src="index.js"></script>','<script src="config.js"></script><script src="local-loader.js"></script><script src="index.js"></script>')
 $html = $html.Replace('(function () {', '(async function () {')
 $html = $html.Replace('const missing = Engine.getMissingFeatures({', 'setStatusMode(''progress''); try { await window.ACE_LOCAL_READY; } catch (error) { displayFailureNotice(error); return; }' + [Environment]::NewLine + 'const missing = Engine.getMissingFeatures({')
+if (-not $html.Contains("setStatusMode('hidden');")) { throw 'Loading completion hook changed; review the scene readiness gate.' }
+$html = $html.Replace("setStatusMode('hidden');", "const finishLoading = () => { if (window.badmintonReady) setStatusMode('hidden'); else requestAnimationFrame(finishLoading); }; finishLoading();")
 $node = Resolve-AceTool 'NODE_BIN' @('node') 'D:\tools\nodejs2\node.exe'
 
 & $node 'tools/prepare_local.cjs'

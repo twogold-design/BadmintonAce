@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "native_tests": 16,
+  "gm_exe_and_browser": "passed",
+  "auto_login_password_and_races": "passed",
+  "two_browser_peer_return_and_score": "passed",
+  "root_file_export_file_http": "passed",
+  "packages": [
+    {
+      "package": "BadmintonAce-Web.zip",
+      "bytes": 61231448,
+      "extracted_bytes": 100947042,
+      "integrity": "passed"
+    },
+    {
+      "package": "BadmintonAce-Server.zip",
+      "bytes": 95973758,
+      "extracted_bytes": 193688254,
+      "integrity": "passed"
+    }
+  ],
+  "live_server_restarted": false
+}

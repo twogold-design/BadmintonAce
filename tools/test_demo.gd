@@ -7,6 +7,7 @@ func check(ok: bool,label: String):
 func run():
 	game=load("res://main.tscn").instantiate();root.add_child(game)
 	game.set_process(false);game.set_physics_process(false);game.sound_on=false
+	game._disconnect();game.authenticated=true
 	var min_pelvis=100.0;var max_foot=0.0;var contacts=0;var preparations=0
 	for avatar in ["male","female"]:
 		game.selected_avatar=avatar;game._build_menu()

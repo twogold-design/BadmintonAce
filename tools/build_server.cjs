@@ -14,7 +14,8 @@ const out=path.join(root,'build','server');
  fs.writeFileSync(config,JSON.stringify({main:bundle,output:blob,disableExperimentalSEAWarning:true,useSnapshot:false,useCodeCache:false}));
  const p=spawnSync(process.execPath,['--experimental-sea-config',config],{cwd:root,stdio:'inherit',windowsHide:true});
  if(p.status!==0)throw Error('SEA preparation failed');
- const exe=path.join(root,'BadmintonAce-Server.exe');
+ const exe=path.resolve(process.env.ACE_SERVER_OUTPUT||path.join(root,'BadmintonAce-Server.exe'));
+ fs.mkdirSync(path.dirname(exe),{recursive:true});
  const binary=fs.readFileSync(process.execPath);
  // Strip the copied runtime's Authenticode certificate before adding our resource.
  const pe=binary.readUInt32LE(0x3c),optional=pe+24;

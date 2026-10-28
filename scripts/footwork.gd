@@ -26,9 +26,8 @@ static func reset(p: Dictionary) -> void:
 
 static func service_targets(p: Dictionary, index: int, receiving: bool) -> Array:
 	# Anatomical left/right, mirrored into world slots for the far player.
-	var long_serve = float(p.service_long)
-	var left_depth = -.20 if receiving else lerpf(.12,-.20,long_serve)
-	var right_depth = .18 if receiving else lerpf(-.14,.18,long_serve)
+	var left_depth = -.20 if receiving else .12
+	var right_depth = .18 if receiving else -.14
 	var side = 1.0 if index==0 else -1.0
 	var left: Vector2 = p.pos+Vector2(-.19,left_depth)*side
 	var right: Vector2 = p.pos+Vector2(.19,right_depth)*side
@@ -43,6 +42,13 @@ static func set_service_stance(p: Dictionary, index: int, receiving: bool) -> vo
 	var feet = service_targets(p,index,receiving)
 	p.foot_l=feet[0];p.foot_r=feet[1]
 	p.footwork = "receive_ready" if receiving else "serve_short"
+
+static func uses_backhand(p: Dictionary, index: int, shuttle: Vector3) -> bool:
+	var side=1.0 if index==0 else -1.0
+	var left=(shuttle.x-p.pos.x)*side
+	# Reach over the head with the forehand for nearby high balls on the left.
+	# Low defensive returns still use the earlier backhand changeover.
+	return left<(-.65 if shuttle.z-float(p.jump)>1.9 else -.25)
 
 static func backhand_turn(p: Dictionary, index: int, shuttle: Vector3) -> float:
 	var side=1.0 if index==0 else -1.0
@@ -88,7 +94,7 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var retreating = p.vel.y*side>.6
 	# Both athletes are right-handed: a forehand coil does not flip when the ball crosses the head.
 	var target_turn = side*(.85*p.preparation if p.preparation>.01 else (.40 if retreating else 0.0))
-	if service_role>0: target_turn = side*(.30 if service_role==2 else lerpf(.08,.58,p.service_long))
+	if service_role>0: target_turn = side*(.30 if service_role==2 else lerpf(.08,.14,p.service_long))
 	var target_hip = target_turn*.63
 	# Fast lateral travel is a turned running step; keeping the hips square to
 	# the net while translating at sprint speed makes both legs trail sideways.
@@ -104,7 +110,7 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		var heading=clampf(atan2(rescue_direction.x,-rescue_direction.y),-1.45,1.45)
 		target_turn=side*heading*.85
 		target_hip=target_turn*.65
-	var backhand_ready = rally and incoming and not (p.swing>0) and shuttle.y*side>.2 and (shuttle.x-p.pos.x)*side<-.25 and p.pos.distance_to(Vector2(shuttle.x,shuttle.y))<2.3
+	var backhand_ready = rally and incoming and not (p.swing>0) and shuttle.y*side>.2 and uses_backhand(p,index,shuttle) and p.pos.distance_to(Vector2(shuttle.x,shuttle.y))<2.3
 	if backhand_ready:
 		target_turn=backhand_turn(p,index,shuttle)
 		target_hip=target_turn*.65

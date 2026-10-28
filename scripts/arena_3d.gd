@@ -53,7 +53,7 @@ func setup(game: Node2D) -> void:
 	for i in range(2):
 		var athlete = ATHLETE_3D.new()
 		world.add_child(athlete)
-		athlete.build("male",i)
+		athlete.build(str(game.players[i].avatar),i)
 		athletes.append(athlete)
 	shuttle = Node3D.new()
 	world.add_child(shuttle)
@@ -202,7 +202,7 @@ func configure_view(game: Node2D) -> void:
 		camera.size = 8.2*size.y/(game.interface_scale()*900)
 		camera.position = Vector3(0,0,8)
 		camera.look_at(Vector3.ZERO)
-	elif game.screen=="menu":
+	elif game.screen in ["menu","loading"]:
 		camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 		camera.fov = 37
 		camera.position = Vector3(-6,12,18)
@@ -217,7 +217,7 @@ func configure_view(game: Node2D) -> void:
 		var aspect = float(size.x)/size.y
 		# A 4:3 window still has ample room for the court: don't zoom it out
 		# just to preserve the old wide-screen header/sidebar proportions.
-		var minimum_aspect = 1.6 if game.screen=="menu" else 1.2
+		var minimum_aspect = 1.6 if game.screen in ["menu","loading"] else 1.2
 		camera.fov = rad_to_deg(2*atan(tan(deg_to_rad(camera.fov)*.5)*maxf(1,minimum_aspect/aspect)))
 
 func project(value: Vector3, game: Node2D) -> Vector2:
@@ -246,7 +246,7 @@ func update_rally_camera(game: Node2D, dt: float) -> void:
 func sync(game: Node2D, dt: float = 1.0/60) -> void:
 	configure_view(game)
 	update_rally_camera(game,dt)
-	var active = game.screen in ["menu","game","avatars"]
+	var active = game.screen in ["loading","menu","game","avatars"]
 	render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED
 	court.visible = game.screen!="avatars"
 	shuttle.visible = game.screen!="avatars"

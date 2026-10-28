@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "checks": [
+    "GM key fragment removed",
+    "account list",
+    "confirmation gates",
+    "clear points logs active game out",
+    "cancel deletion",
+    "delete account",
+    "700px layout",
+    "exit management"
+  ],
+  "errors": []
+}

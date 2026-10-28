@@ -25,10 +25,13 @@ func run():
 						var model=game.arena.athletes[index]
 						model.animate(p,index,game.ball,0,serving)
 						var frame=game.ARENA_3D.ATHLETE_3D.body_frame(p,index)
+						for limb in ["l","r"]:
+							var upper=frame.chest_basis.inverse()*(model.joint_points["lowerarm_"+limb]-model.joint_points["upperarm_"+limb])
+							check(upper.x*(-1 if limb=="l" else 1)>.055,"Ready elbows retain space away from the ribs")
 						check(p.lift_l<.001 and p.lift_r<.001,"Settled server and receiver keep both feet down")
 						check(frame.rf.x-frame.lf.x>.30,"Service stance retains lateral space between feet")
-						if not serving or shot==0:
-							check(frame.lf.z<frame.rf.z-.25,"Receiver and forehand server place non-racket leg forward")
+						if not serving:
+							check(frame.lf.z<frame.rf.z-.25,"Receiver places non-racket leg forward")
 						else:
 							check(frame.rf.z<frame.lf.z-.20,"Backhand server places racket leg slightly forward")
 						var head: Vector3=model.basis.inverse()*(model.racket_center_world-model.position)
@@ -39,18 +42,27 @@ func run():
 						check(absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))<deg_to_rad(15),"Service preparation carries twist through forearm")
 						if not serving:
 							check(head.z<-.25 and head.y>1.4,"Receiver presents raised racket in front of body")
+							check(forearm.y>sin(deg_to_rad(10)),"Receiver forearm slopes upward: "+avatar+" "+str(forearm.y))
+							var face=frame.chest_basis.inverse()*model.racket_basis_current.z
+							# Check the signed direction in the player's frame: an absolute
+							# angle accepts the opposite grip rotation as equally correct.
+							check(face.x>.25 and face.z>.25,"Receiver bevel grip turns in the correct direction: "+avatar+" "+str(face))
+							var hand_scale=model.rest_at("hand_r").distance_to(model.rest_at("middle_01_r"))/.1165
+							var socket=model.joint_points.hand_r+palm*model.PALM_ANCHOR*hand_scale
+							var handle=model.joint_points.hand_r+model.racket_basis_current*(model.racket_mount_current+Vector3(0,.035,0))
+							check(socket.distance_to(handle)<.001,"Receiving grip keeps handle seated inside palm")
 							check(frame.pelvis.y<model.rest_at("pelvis").y-.08,"Receiver bends knees rather than standing upright")
 							check(frame.lean<-.05,"Receiver leans slightly forward from torso")
-						elif shot==1:
-							var error=model.racket_center_world.distance_to(Vector3(game.ball.x,game.ball.z,game.ball.y))
-							check(error<.003,"Short-service string bed waits next to held shuttle")
 						else:
-							check(head.z>.15 and head.y<1.05,"Forehand server prepares racket low behind the body")
+							var error=model.racket_center_world.distance_to(Vector3(game.ball.x,game.ball.z,game.ball.y))
+							check(error<.003,"Both backhand serves keep the string bed beside the held shuttle")
+							check(head.z<-.25 and head.y<1.15,"High serve retains backhand preparation in front of body")
 						var copied=p.duplicate(true);game.FOOTWORK.reset(copied)
 						game.FOOTWORK.receive(copied,game.FOOTWORK.snapshot(p))
 						for tick in range(60):game.FOOTWORK.interpolate(copied,1.0/60)
 						check(absf(copied.receive_ready-p.receive_ready)<.001 and absf(copied.service_long-p.service_long)<.001,"Network motion preserves serving and receiving poses")
 					check(game._try_hit(server,shot),"Both serve types launch from stance")
+					check(game.players[server].backhand,"Short and high serves both use the backhand grip")
 					var model=game.arena.athletes[server]
 					model.animate(game.players[server],server,game.ball,0,false)
 					check(model.contact_error<.003,"Racket meets actual service contact")

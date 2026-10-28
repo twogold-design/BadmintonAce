@@ -4,12 +4,15 @@ const path=require('node:path');
 const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
+const {enterAccount,challenge}=require('./account_helpers.cjs');
 (async()=>{
  const context=await chromium.launchPersistentContext(path.join(root,'.runtime','layout-check'),{executablePath:process.env.ACE_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,viewport:{width:1440,height:900},args:['--enable-unsafe-swiftshader','--disable-crash-reporter','--disable-breakpad']});
  const errors=[],report=[];
  try{
   const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+  if(process.env.ACE_TEST_URL)await p.addInitScript(url=>Object.defineProperty(window,'ACE_SERVER',{get:()=>url.replace(/^http/,'ws')+'/ws',set:()=>{}}),process.env.ACE_TEST_URL);
   await p.goto(pathToFileURL(path.join(root,'index.html')).href);
+  await enterAccount(p,'布局');
   await p.waitForFunction(()=>window.badmintonState?.screen==='menu');
   const first=await p.evaluate(()=>window.badmintonState.demo_leg);
   let minHip=99;
@@ -22,7 +25,7 @@ const root=path.resolve(__dirname,'..');
   }
   assert.ok((await p.evaluate(()=>window.badmintonState.demo_leg))>=first+3,'Home demo must complete multiple alternating shots');
   await p.screenshot({path:path.join(root,'artifacts','menu.png')});
-  await p.mouse.click(200,585);await p.waitForFunction(()=>window.badmintonState.screen==='game');
+  await challenge(p);
   if(!(await p.evaluate(()=>window.badmintonState.baseline_camera)))await p.keyboard.press('c');
   for(const [w,h] of [[1440,900],[1280,720],[960,600],[1024,768],[1920,1080]]){
    await p.setViewportSize({width:w,height:h});await p.waitForTimeout(450);
@@ -42,7 +45,8 @@ const root=path.resolve(__dirname,'..');
    const state=await p.evaluate(()=>window.badmintonState);
    const screenPoint=(x,y)=>[(x*state.ui_scale[0]+state.ui_offset[0])/state.render_size[0]*w,(y*state.ui_scale[1]+state.ui_offset[1])/state.render_size[1]*h];
    await p.screenshot({path:path.join(root,'artifacts',`menu-${w}x${h}.png`)});
-   await p.mouse.click(...screenPoint(200,585));await p.waitForFunction(()=>window.badmintonState.screen==='game');
+   await p.mouse.click(...screenPoint(200,585));await p.waitForFunction(()=>window.badmintonState.screen==='challenges');
+   await p.mouse.click(...screenPoint(230,340));await p.waitForFunction(()=>window.badmintonState.screen==='game');
    await p.keyboard.press('Escape');await p.waitForFunction(()=>window.badmintonState.paused);await p.waitForTimeout(100);
    await p.screenshot({path:path.join(root,'artifacts',`buttons-${w}x${h}.png`)});
    await p.mouse.click(...screenPoint(720,645));await p.waitForFunction(()=>window.badmintonState.screen==='menu');

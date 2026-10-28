@@ -11,13 +11,15 @@ New-Item -ItemType Directory -Force -Path $env:APPDATA,$env:LOCALAPPDATA,$env:TE
 $exe = Join-Path $projectRoot 'BadmintonAce-Server.exe'
 if (-not (Test-Path -LiteralPath $exe)) { throw 'Missing BadmintonAce-Server.exe. Extract the complete server package.' }
 $running = $false
-try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 2; $running = $health.ok -and $health.app -eq 'badminton-ace' -and $health.version -eq 2 -and $health.lanOnly } catch {}
+$health = $null
+try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 2; $running = $health.ok -and $health.app -eq 'badminton-ace' -and $health.version -ge 4 -and $health.lanOnly } catch {}
+if ($health -and -not $running) { throw 'An older or incompatible service is running on port 8766. Close it after current matches finish, then start the game again.' }
 if (-not $running) {
     $proc = Start-Process -FilePath $exe -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput 'artifacts\lan-server.log' -RedirectStandardError 'artifacts\lan-server-error.log' -PassThru
     $proc.Id | Set-Content -LiteralPath '.runtime\lan-server.pid'
     for ($i=0;$i -lt 30;$i++) {
         Start-Sleep -Milliseconds 200
-        try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 1; if ($health.ok -and $health.app -eq 'badminton-ace' -and $health.version -eq 2 -and $health.lanOnly) { $running=$true; break } } catch {}
+        try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/health' -TimeoutSec 1; if ($health.ok -and $health.app -eq 'badminton-ace' -and $health.version -ge 4 -and $health.lanOnly) { $running=$true; break } } catch {}
     }
     if (-not $running) { throw 'Server did not start. See artifacts/lan-server-error.log.' }
 }

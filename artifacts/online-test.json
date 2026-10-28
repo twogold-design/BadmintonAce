@@ -1,10 +1,15 @@
 {
   "ok": true,
-  "room": "6ECB71",
+  "room": "D90851",
   "score": [
     1,
     0
   ],
+  "stall_recovery": {
+    "lag_ms": 49.3830161503634,
+    "catchups": 0,
+    "coalesced": 42
+  },
   "checks": [
     "male/female menu selection",
     "selection persists after reload",
@@ -21,6 +26,8 @@
     "state sync",
     "score sync",
     "pause/resume",
+    "1.8-second guest stall recovery",
+    "landing replaces obsolete flight",
     "disconnect"
   ],
   "errors": []

@@ -2,32 +2,51 @@ extends RefCounted
 ## Render received snapshots on one short, buffered host timeline.
 ## Ball and velocity must describe the same instant for stable flight guides.
 
-const DELAY = .066
+const DELAY = .05
+const MAX_LAG = .15
 var frames: Array[Dictionary] = []
 var playhead = -1.0
 var shown_hit = -1
+var last_seq = -1
+var catchups = 0
 
 func reset() -> void:
 	frames.clear()
 	playhead = -1.0
 	shown_hit = -1
+	last_seq = -1
+	catchups = 0
 
 func push(packet: Dictionary) -> void:
+	if packet.has("seq"):
+		if int(packet.seq)<=last_seq: return
+		last_seq = int(packet.seq)
 	if not frames.is_empty():
-		if float(packet.time)<float(frames.back().time)-.2: reset()
-		elif float(packet.time)<=float(frames.back().time):
+		if float(packet.time)<float(frames.back().time): return
+		elif float(packet.time)==float(frames.back().time):
 			frames[frames.size()-1] = packet
 			return
+		# A point, new serve or final result supersedes the old flight immediately.
+		if packet.phase!=frames.back().phase and packet.phase!="rally":
+			frames.clear()
+			playhead = float(packet.time)
+			shown_hit = -1
 	frames.append(packet)
-	while frames.size()>20: frames.pop_front()
+	while frames.size()>8: frames.pop_front()
 	if playhead<0: playhead = float(packet.time)-DELAY
 
 func render(game: Node2D, dt: float) -> void:
 	if frames.is_empty(): return
 	var newest = float(frames.back().time)
 	var lag = newest-playhead
-	# Small clock corrections avoid visible jumps when packet spacing varies.
-	var rate = 1.03 if lag>.12 else (.97 if lag<.025 else 1.0)
+	# Normal jitter gets gentle clock correction. A stalled/slow renderer must
+	# discard history instead of spending seconds replaying an old rally.
+	if lag>MAX_LAG:
+		playhead = newest-DELAY
+		lag = DELAY
+		catchups += 1
+		game.ball_trail.clear()
+	var rate = clampf(1.0+(lag-DELAY)*2.0,.90,1.10)
 	playhead = minf(playhead+dt*rate,newest+.04)
 	while frames.size()>1 and float(frames[1].time)<=playhead: frames.pop_front()
 	var a: Dictionary = frames[0]
