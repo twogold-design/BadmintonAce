@@ -3,164 +3,149 @@
     {
       "avatar": "male",
       "index": 0,
-      "max_foot_step": 0.0400000363588333,
-      "max_height_step": 0.00664510247937091,
-      "min_pelvis": 0.804236590862274,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0399999618530273,
       "speed": 4.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "male",
       "index": 0,
-      "max_foot_step": 0.0399999134242535,
-      "max_height_step": 0.00787679032788236,
-      "min_pelvis": 0.804236590862274,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0399999618530273,
       "speed": 4.5,
-      "support_time": 0.191666666666667,
-      "takeoff": 0.333333333333333
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "male",
       "index": 0,
-      "max_foot_step": 0.039999783039093,
-      "max_height_step": 0.0091140041035437,
-      "min_pelvis": 0.799607157707214,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0431724861264229,
       "speed": 10.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "male",
       "index": 0,
-      "max_foot_step": 0.0400001294910908,
-      "max_height_step": 0.0110677172051745,
-      "min_pelvis": 0.804236590862274,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0592946782708168,
       "speed": 10.5,
-      "support_time": 0.183333333333333,
-      "takeoff": 0.325
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "male",
       "index": 1,
-      "max_foot_step": 0.0400000996887684,
-      "max_height_step": 0.00940683823396843,
-      "min_pelvis": 0.804236590862274,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0515719093382359,
       "speed": 4.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "male",
       "index": 1,
-      "max_foot_step": 0.0399999134242535,
-      "max_height_step": 0.00787679032788236,
-      "min_pelvis": 0.804236590862274,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0399999618530273,
       "speed": 4.5,
-      "support_time": 0.191666666666667,
-      "takeoff": 0.333333333333333
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "male",
       "index": 1,
-      "max_foot_step": 0.0400000177323818,
-      "max_height_step": 0.0091140041035437,
-      "min_pelvis": 0.799585282802582,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0699059367179871,
       "speed": 10.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "male",
       "index": 1,
-      "max_foot_step": 0.0400001294910908,
-      "max_height_step": 0.0110677172051745,
-      "min_pelvis": 0.804236590862274,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0592946782708168,
       "speed": 10.5,
-      "support_time": 0.183333333333333,
-      "takeoff": 0.325
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 0,
-      "max_foot_step": 0.0400000363588333,
-      "max_height_step": 0.00664510247937091,
-      "min_pelvis": 0.786936461925507,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0399999618530273,
       "speed": 4.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 0,
-      "max_foot_step": 0.0399999134242535,
-      "max_height_step": 0.00787679032788236,
-      "min_pelvis": 0.786936461925507,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0399999618530273,
       "speed": 4.5,
-      "support_time": 0.191666666666667,
-      "takeoff": 0.333333333333333
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 0,
-      "max_foot_step": 0.039999783039093,
-      "max_height_step": 0.0091140041035437,
-      "min_pelvis": 0.772506713867188,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0431724861264229,
       "speed": 10.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 0,
-      "max_foot_step": 0.0400001294910908,
-      "max_height_step": 0.0110677172051745,
-      "min_pelvis": 0.786936461925507,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0592946782708168,
       "speed": 10.5,
-      "support_time": 0.183333333333333,
-      "takeoff": 0.325
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 1,
-      "max_foot_step": 0.0400000996887684,
-      "max_height_step": 0.00940683823396843,
-      "min_pelvis": 0.786936461925507,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0515719093382359,
       "speed": 4.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 1,
-      "max_foot_step": 0.0399999134242535,
-      "max_height_step": 0.00787679032788236,
-      "min_pelvis": 0.786936461925507,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0399999618530273,
       "speed": 4.5,
-      "support_time": 0.191666666666667,
-      "takeoff": 0.333333333333333
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 1,
-      "max_foot_step": 0.0400000177323818,
-      "max_height_step": 0.0091140041035437,
-      "min_pelvis": 0.772518873214722,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0699059367179871,
       "speed": 10.5,
-      "support_time": 0.225,
-      "takeoff": 0.366666666666667
+      "takeoff": 0.141666666666667
     },
     {
       "avatar": "female",
       "index": 1,
-      "max_foot_step": 0.0400001294910908,
-      "max_height_step": 0.0110677172051745,
-      "min_pelvis": 0.786936461925507,
+      "max_feet_ahead_of_hips": 0.0,
+      "max_physics_error": 0.0,
+      "max_relative_foot_step": 0.0592946782708168,
       "speed": 10.5,
-      "support_time": 0.183333333333333,
-      "takeoff": 0.325
+      "takeoff": 0.141666666666667
     }
   ],
-  "checks": 1737,
-  "failures": 0
+  "checks": 2792,
+  "failures": 0,
+  "purpose": "Cosmetic foot gathering must not gate movement, jump or shot input"
 }

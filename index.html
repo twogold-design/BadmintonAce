@@ -1,226 +1,62 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-	<head><base href="./build/web/">
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>谁是羽毛球高手</title>
-		<style>
-html, body, #canvas {
-	margin: 0;
-	padding: 0;
-	border: 0;
-}
-
-body {
-	color: white;
-	background-color: black;
-	overflow: hidden;
-	touch-action: none;
-}
-
-#canvas {
-	display: block;
-}
-
-#canvas:focus {
-	outline: none;
-}
-
-#status, #status-splash, #status-progress {
-	position: absolute;
-	left: 0;
-	right: 0;
-}
-
-#status, #status-splash {
-	top: 0;
-	bottom: 0;
-}
-
-#status {
-	background-color: #242424;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	visibility: hidden;
-}
-
-#status-splash {
-	max-height: 100%;
-	max-width: 100%;
-	margin: auto;
-}
-
-#status-splash.show-image--false {
-	display: none;
-}
-
-#status-splash.fullsize--true {
-	height: 100%;
-	width: 100%;
-	object-fit: contain;
-}
-
-#status-splash.use-filter--false {
-	image-rendering: pixelated;
-}
-
-#status-progress, #status-notice {
-	display: none;
-}
-
-#status-progress {
-	bottom: 10%;
-	width: 50%;
-	margin: 0 auto;
-}
-
-#status-notice {
-	background-color: #5b3943;
-	border-radius: 0.5rem;
-	border: 1px solid #9b3943;
-	color: #e0e0e0;
-	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
-	line-height: 1.3;
-	margin: 0 2rem;
-	overflow: hidden;
-	padding: 1rem;
-	text-align: center;
-	z-index: 1;
-}
-		</style>
-		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
-<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
-<meta name="theme-color" content="#0b1721">
-	<style>
-body,#status{background:#0b1721}#status-splash{display:none!important}
-#status:before{content:'谁是羽毛球高手';font:700 38px system-ui;color:#edf3e9;letter-spacing:4px;margin-bottom:22px}
-#status:after{content:'正在准备球场…  /  首次加载请稍候';font:15px system-ui;color:#829b9e;margin-top:22px}
-#status-progress{position:relative;bottom:auto;width:300px;height:7px;accent-color:#cdf578}
-</style></head>
-	<body>
-		<canvas id="canvas">
-			Your browser does not support the canvas tag.
-		</canvas>
-
-		<noscript>
-			Your browser does not support JavaScript.
-		</noscript>
-
-		<div id="status">
-			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="index.png" alt="">
-			<progress id="status-progress"></progress>
-			<div id="status-notice"></div>
-		</div>
-
-		<script src="config.js"></script><script src="local-loader.js"></script><script src="index.js"></script>
-		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":20502556,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
-const GODOT_THREADS_ENABLED = false;
-const engine = new Engine(GODOT_CONFIG);
-
-(async function () {
-	const statusOverlay = document.getElementById('status');
-	const statusProgress = document.getElementById('status-progress');
-	const statusNotice = document.getElementById('status-notice');
-
-	let initializing = true;
-	let statusMode = '';
-
-	function setStatusMode(mode) {
-		if (statusMode === mode || !initializing) {
-			return;
-		}
-		if (mode === 'hidden') {
-			statusOverlay.remove();
-			initializing = false;
-			return;
-		}
-		statusOverlay.style.visibility = 'visible';
-		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
-		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
-		statusMode = mode;
-	}
-
-	function setStatusNotice(text) {
-		while (statusNotice.lastChild) {
-			statusNotice.removeChild(statusNotice.lastChild);
-		}
-		const lines = text.split('\n');
-		lines.forEach((line) => {
-			statusNotice.appendChild(document.createTextNode(line));
-			statusNotice.appendChild(document.createElement('br'));
-		});
-	}
-
-	function displayFailureNotice(err) {
-		console.error(err);
-		if (err instanceof Error) {
-			setStatusNotice(err.message);
-		} else if (typeof err === 'string') {
-			setStatusNotice(err);
-		} else {
-			setStatusNotice('An unknown error occurred.');
-		}
-		setStatusMode('notice');
-		initializing = false;
-	}
-
-	setStatusMode('progress'); try { await window.ACE_LOCAL_READY; } catch (error) { displayFailureNotice(error); return; }
-const missing = Engine.getMissingFeatures({
-		threads: GODOT_THREADS_ENABLED,
-	});
-
-	if (missing.length !== 0) {
-		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
-			let serviceWorkerRegistrationPromise;
-			try {
-				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
-			} catch (err) {
-				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
-			}
-			// There's a chance that installing the service worker would fix the issue
-			Promise.race([
-				serviceWorkerRegistrationPromise.then((registration) => {
-					if (registration != null) {
-						return Promise.reject(new Error('Service worker already exists.'));
-					}
-					return registration;
-				}).then(() => engine.installServiceWorker()),
-				// For some reason, `getRegistration()` can stall
-				new Promise((resolve) => {
-					setTimeout(() => resolve(), 2000);
-				}),
-			]).then(() => {
-				// Reload if there was no error.
-				window.location.reload();
-			}).catch((err) => {
-				console.error('Error while registering service worker:', err);
-			});
-		} else {
-			// Display the message as usual
-			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
-			displayFailureNotice(missingMsg + missing.join('\n'));
-		}
-	} else {
-		setStatusMode('progress');
-		engine.startGame({
-			'onProgress': function (current, total) {
-				if (current > 0 && total > 0) {
-					statusProgress.value = current;
-					statusProgress.max = total;
-				} else {
-					statusProgress.removeAttribute('value');
-					statusProgress.removeAttribute('max');
-				}
-			},
-		}).then(() => {
-			const finishLoading = () => { if (window.badmintonReady) setStatusMode('hidden'); else requestAnimationFrame(finishLoading); }; finishLoading();
-		}, displayFailureNotice);
-	}
-}());
-		</script>
-	</body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1721">
+  <title>谁是羽毛球高手 · 启动</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.75 system-ui, "Microsoft YaHei", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b1721; color: #edf3e9; padding: 28px; }
+    main { width: min(100%, 760px); }
+    h1 { font-size: clamp(26px, 5vw, 38px); margin: 0 0 12px; }
+    h2 { font-size: 19px; margin: 0 0 8px; }
+    p { margin: 8px 0; }
+    .status { color: #cdf578; }
+    .card { padding: 22px; border: 1px solid #34505c; border-radius: 14px; margin: 18px 0; background: #122530; }
+    code { color: #cdf578; overflow-wrap: anywhere; }
+    a { color: #cdf578; text-underline-offset: 4px; }
+    .note { color: #a8bdc5; font-size: 14px; }
+    ol { padding-left: 24px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>谁是羽毛球高手</h1>
+    <p class="status" id="status" role="status">正在检查本地网页版本…</p>
+    <div id="help">
+      <p>这是工程源码入口。首次从 GitHub 拉取后，需要用 Godot 运行工程，或先导出网页版本。</p>
+      <section class="card">
+        <h2>参与开发 · 直接运行工程</h2>
+        <ol>
+          <li>使用 Godot 4.7.2 导入本文件夹中的 <code>project.godot</code>。</li>
+          <li>等待资源导入完成，按 <strong>F5</strong> 运行，点击“单机游玩”即可测试。</li>
+        </ol>
+        <p class="note">模型和游戏源码已包含在仓库中；单机调试无需服务器、Node.js 或 Blender。</p>
+      </section>
+      <section class="card">
+        <h2>需要浏览器版本</h2>
+        <p>按照 <a href="CONTRIBUTING.md">协作开发指南</a> 配置 Godot、Node.js 和网页导出模板，再运行文件夹中的 <strong>重新导出网页版.cmd</strong>。完成后重新打开本页即可进入游戏。</p>
+        <p class="note">导出结果位于 <code>build/web/</code>；分享试玩时请发送完整的 <code>dist/BadmintonAce-Web.zip</code>，不能只发送 HTML。源码包不包含这些生成文件。</p>
+      </section>
+    </div>
+    <noscript><p>浏览器已禁用 JavaScript，请启用后重新打开游戏。</p></noscript>
+  </main>
+  <script>
+    // A classic script probe supports file:// without a local fetch request.
+    // Keep this source entry independent of Godot's generated HTML shell.
+    const statusLine = document.getElementById('status');
+    const probe = document.createElement('script');
+    probe.src = './build/web/entry-ready.js';
+    probe.onerror = () => { statusLine.textContent = '尚未找到导出的网页文件，请按以下步骤启动。'; };
+    probe.onload = () => {
+      if (window.ACE_WEB_BUILD !== 1) { probe.onerror(); return; }
+      statusLine.textContent = '正在进入游戏…';
+      location.replace('./build/web/index.html' + location.search + location.hash);
+    };
+    document.head.appendChild(probe);
+  </script>
+</body>
 </html>
 

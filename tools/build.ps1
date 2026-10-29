@@ -28,17 +28,13 @@ body,#status{background:#0b1721}#status-splash{display:none!important}
 '@
 $html = $html.Replace('</head>', $css + '</head>')
 [IO.File]::WriteAllText($htmlPath,$html,[Text.UTF8Encoding]::new($false))
-$rootEntry = $html.Replace('<head>', '<head><base href="./build/web/">')
-# Publish by rename: an open browser can memory-map the existing entry and
-# prevent truncation in place. Keep the new file on the same project volume.
-$rootEntryStaging = Join-Path $projectRoot '.runtime\index.html.next'
-[IO.File]::WriteAllText($rootEntryStaging,$rootEntry,[Text.UTF8Encoding]::new($false))
-[IO.File]::Move($rootEntryStaging,(Join-Path $projectRoot 'index.html'),$true)
+# Keep the tracked source entry: it explains startup for fresh checkouts.
 Copy-Item -LiteralPath 'tools\web-config.js' -Destination 'build\web\config.js' -Force
 Copy-Item -LiteralPath 'assets\athletes\ATHLETE-LICENSE.txt' -Destination 'build\web\ATHLETE-LICENSE.txt' -Force
 Copy-Item -LiteralPath 'assets\FONT-LICENSE.txt' -Destination 'build\web\FONT-LICENSE.txt' -Force
 Copy-Item -LiteralPath 'docs\比赛提交说明.txt' -Destination 'build\web\README.txt' -Force
 if (Test-Path -LiteralPath 'docs\GODOT-LICENSE.txt') { Copy-Item -LiteralPath 'docs\GODOT-LICENSE.txt' -Destination 'build\web\GODOT-LICENSE.txt' -Force }
+[IO.File]::WriteAllText((Join-Path $projectRoot 'build\web\entry-ready.js'),'window.ACE_WEB_BUILD = 1;',[Text.UTF8Encoding]::new($false))
 $files = Get-ChildItem -LiteralPath 'build\web' -File
 $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
 if ($totalBytes -ge 200000000) { throw "Web build exceeds 200 MB: $totalBytes bytes" }

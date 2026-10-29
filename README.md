@@ -6,7 +6,7 @@ Godot 4.7.2 制作的 3D 网页羽毛球游戏，支持单人 AI、练习和两�
 
 仓库包含 Godot 工程、游戏与服务器源码、字体及许可、构建脚本、测试和使用说明。直接游玩请到 [版本下载页](https://github.com/twogold-design/BadmintonAce/releases) 下载 `BadmintonAce-Web.zip`；自建局域网主机下载 `BadmintonAce-Server.zip`，其中包含服务器 EXE 和配套网页。
 
-GitHub 的 Code → Download ZIP 是源码包，需导出后才能打开网页入口。生成的 `build/`、`dist/`、服务器 EXE、依赖目录、缓存及玩家数据库不纳入源码版本管理。
+GitHub 的 Code → Download ZIP 和 git clone 得到的是源码。协作者用 Godot 4.7.2 导入 `project.godot`，等待导入后按 **F5 → 单机游玩** 即可调试。浏览器运行需先导出；根目录 `index.html` 在缺少导出文件时显示启动指引，完成导出后自动进入游戏。生成的 `build/`、`dist/`、服务器 EXE、依赖目录、缓存及玩家数据库不纳入源码版本管理。
 
 开发时用 Godot 4.7.2 打开 `project.godot`。可直接编辑的新角色 `.blend`、运行时 `.glb`、原始网格、纹理、授权与重建脚本均包含在仓库中。协作分工、安装、测试和重新导出步骤见 [协作开发指南](CONTRIBUTING.md)。常规游戏开发不需要安装 Blender。
 

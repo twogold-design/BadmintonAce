@@ -1,0 +1,25 @@
+[
+  {
+    "entry": "previous-source",
+    "reproducedBlankPage": true,
+    "errors": [
+      "Engine is not defined"
+    ]
+  },
+  {
+    "entry": "file",
+    "missingBuildExplained": true,
+    "godotRunInstructions": true,
+    "errors": []
+  },
+  {
+    "entry": "http",
+    "missingBuildExplained": true,
+    "godotRunInstructions": true,
+    "errors": []
+  },
+  {
+    "entry": "javascript-disabled",
+    "instructionsVisible": true
+  }
+]

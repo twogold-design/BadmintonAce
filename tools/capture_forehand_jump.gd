@@ -10,8 +10,8 @@ func run():
 	var times=[0.0,.07,.13,.24,.48,.59,.94,1.20]
 	var labels=["侧身准备","屈膝蓄力","蹬伸起跳","腾空引拍","高点触球","内旋随挥","落地缓冲","恢复准备"]
 	if plant:
-		times=[0.0,.10,.225,.29,.36,.43,.55,.80]
-		labels=["右脚迈出","完成落脚","形成支撑","屈膝蓄力","蹬伸起跳","腾空","高点挥拍","收拍"]
+		times=[0.0,.04,.09,.13,.20,.35,.55,.80]
+		labels=["右脚迈出","立即蓄力","脚位收拢","蹬伸","腾空","引拍","高点挥拍","收拍"]
 	for i in range(16):
 		var viewport=SubViewport.new();viewport.size=Vector2i(225,450);viewport.own_world_3d=true
 		viewport.render_target_update_mode=SubViewport.UPDATE_ALWAYS;root.add_child(viewport)

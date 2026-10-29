@@ -1,0 +1,16 @@
+[
+  {
+    "file": "BadmintonAce-Web.zip",
+    "compressed": 61287501,
+    "unpacked": 101016344,
+    "bad_entry": null,
+    "index": true
+  },
+  {
+    "file": "BadmintonAce-Server.zip",
+    "compressed": 96037117,
+    "unpacked": 193775265,
+    "bad_entry": null,
+    "index": true
+  }
+]
