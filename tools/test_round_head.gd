@@ -36,7 +36,7 @@ func run():
 				var model=game.arena.athletes[index];model.animate(p,index,contact,0)
 				check(model.contact_error<.003,"Selected overhead pose reaches actual shuttle with the string bed")
 				var low=Vector3(-.35*side,4.7*side,1.1)
-				check(not game.FOOTWORK.uses_backhand(p,index,low),"Nearby low left returns retain forehand")
+				check(game.FOOTWORK.uses_backhand(p,index,low),"Low left returns in front use compact backhand while nearby overheads remain forehand")
 				p.jump=.7
 				check(not game.FOOTWORK.uses_backhand(p,index,Vector3(-.35*side,4.7*side,2.2)),"Jumping does not change a nearby forehand into a backhand")
 				for behind in [.2,.6,1.0]:

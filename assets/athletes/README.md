@@ -36,6 +36,6 @@ WebGL 兼容渲染下，皮肤与鞋材质关闭接收实时阴影，保留平�
 
 ## 握拍与前臂蒙皮
 
-右前臂加入 ace_forearm_r_1 至 ace_forearm_r_4 四个骨骼，均以 lowerarm_r 为父骨，沿网格长度分配 25%/50%/75%/100% 轴向旋转权重。原 lowerarm_r 保持肘部铰链方向，手腕连接末端旋转骨。运行 tools/build_athletes.py --refine-forearms 可更新现有 .blend/.glb/测量 JSON；完整重建也包含该步骤，对象标记防止重复分配权重。
+左右前臂分别加入 ace_forearm_r_1 至 ace_forearm_r_4、ace_forearm_l_1 至 ace_forearm_l_4 四个骨骼，以对应 lowerarm_r/l 为父骨，沿网格长度分配 25%/50%/75%/100% 轴向旋转权重。原 lowerarm_r/l 保持肘部铰链方向，手腕连接末端旋转骨；左手放网辅助动作也沿前臂分配旋转，避免集中拧在腕缝。运行 tools/build_athletes.py --refine-forearms 可更新现有 .blend/.glb/测量 JSON；完整重建也包含该步骤，对象标记防止重复分配权重。
 
 拍柄中心由实际掌心锚点定位，并按男女各自手掌长度缩放偏移。指节围绕拍柄弯曲。低位与高位反手分别约束肘部和手背朝向；高位必须让手背朝向球网，避免仅检查腕部连续却接受正反方向颠倒的姿势。查看 artifacts/backhand-wrist-detail.png 与 tools/test_backhand.gd。

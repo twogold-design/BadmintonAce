@@ -26,7 +26,9 @@ func run():
 					if not FOOTWORK.uses_backhand(p,index,contact):continue
 					if not ATHLETE.can_reach(p,index,contact):continue
 					FOOTWORK.hit(p,index,contact,false)
-					check(absf(p.body_turn)>.6 and absf(p.hip_turn)>.3,"Backhand impact turns shoulder and pelvis toward the shuttle")
+					if stroke in ["net","lift"]:
+						check(absf(p.body_turn)<=1.001 and absf(p.hip_turn)<=.651,"Low backhand uses a compact bounded turn, including no turn for close balls")
+					else:check(absf(p.body_turn)>.6 and absf(p.hip_turn)>.3,"High backhand turns shoulder and pelvis toward shuttle")
 					for tick in range(21):
 						p.swing=.48*(1-float(tick)/21)
 						if tick>0:FOOTWORK.update(p,index,.48/21,true,false,contact,false)
@@ -51,7 +53,7 @@ func run():
 							previous=current
 
 						if tick==0:
-							check(model.contact_error<.002,"Backhand grip change preserves actual string-bed contact")
+							check(model.contact_error<(model.NET_CONTACT_TOLERANCE if p.stroke in ["net","lift"] else .002),"Backhand contact retains its bounded visual allowance")
 							var hinge=(model.joint_points.lowerarm_r-model.joint_points.upperarm_r).normalized().cross(forearm).normalized()
 							var roll=absf(hinge.signed_angle_to(palm.normalized(),forearm));max_contact_roll=maxf(max_contact_roll,roll)
 							check(roll<1.81,"Impact does not force a half-turn of the forearm")

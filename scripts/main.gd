@@ -1958,18 +1958,24 @@ func _network_process(dt: float) -> void:
 		net_ping = 0
 		_net_send({"type":"ping","stamp":Time.get_ticks_msec()})
 	if net_role == "guest" and not paused: remote_view.render(self,dt)
-	move_refresh += dt
-	var interval = (0.5 if paused else (1.0/30.0 if phase=="rally" else .1)) if net_role=="host" else 1.0/30.0
+	if net_role == "guest":
+		move_refresh += dt
+		var move = Vector2.ZERO if paused else Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+		_send_movement(move)
+		return
+	var interval = 0.5 if paused else (1.0/30.0 if phase=="rally" else .1)
 	if net_tick < interval: return
 	# Preserve the fractional interval without sending a burst after a slow frame.
 	net_tick = fmod(net_tick,interval)
 	if net_role == "host": _send_snapshot()
-	elif net_role == "guest":
-		var move = Vector2.ZERO if paused else Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
-		if move!=last_sent_move or move_refresh>.2:
-			if _net_send({"type":"input","action":"move","x":-move.x,"y":-move.y}):
-				last_sent_move = move
-				move_refresh = 0
+
+func _send_movement(move: Vector2) -> void:
+	# Changed directions (including release) send on this frame, independently
+	# of the snapshot clock. Refresh at 10 Hz repairs a lost movement/stop packet.
+	if move!=last_sent_move or move_refresh>=.1:
+		if _net_send({"type":"input","action":"move","x":-move.x,"y":-move.y}):
+			last_sent_move = move
+			move_refresh = 0
 
 func _send_snapshot() -> void:
 	var ps = []

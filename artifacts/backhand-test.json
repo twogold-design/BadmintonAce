@@ -1,9 +1,9 @@
 {
-  "checks": 3005,
+  "checks": 7805,
   "coverage": "male/female, P1/P2, net/lift/drive/overhead, contact through follow-through, high backhand hand facing, palm grip position, distributed forearm skinning",
   "failures": 0,
   "high_backhand_contacts": 4,
-  "max_contact_forearm_roll_degrees": 102.881554864015,
-  "max_wrist_twist_degrees": 0.0000145970951528157,
+  "max_contact_forearm_roll_degrees": 93.0344369866614,
+  "max_wrist_twist_degrees": 0.0000145892867638505,
   "min_hand_forearm_dot": 0.652054965496063
 }

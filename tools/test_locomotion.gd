@@ -13,7 +13,8 @@ func run():
 					FOOTWORK.reset(p)
 					var min_width=10.0;var min_hip=10.0;var max_offset=0.0;var max_mid=0.0;var max_foot_speed=0.0;var air=0;var plants=0;var contacts=0;var worst={}
 					var max_turn=0.0;var shuffle_frames=0
-					var forward_frames=0;var max_lean_step=0.0;var previous_lean=0.0;var final_lean=0.0
+					var forward_frames=0;var max_lean_step=0.0;var previous_lean=float(ATHLETE.body_frame(p,index).lean);var final_lean=previous_lean
+					var max_stride=0.0;var touchdowns=0
 					for frame in range(240):
 						var previous=[p.foot_l,p.foot_r];var previous_lifts=[p.lift_l,p.lift_r]
 						var requested=direction*speed if frame<120 else (-direction*speed if frame<180 else Vector2.ZERO)
@@ -30,7 +31,11 @@ func run():
 						var side=1.0 if index==0 else -1.0
 						if frame>=60 and frame<120 and direction.y*side<-.99 and speed>=4.5:
 							var chest_forward=-(body.chest-body.pelvis).z
-							if body.lean<-.10 and body.lean>-.20 and body.pelvis.z<-.035 and body.pelvis.z>-.08 and chest_forward>.025:forward_frames+=1
+							if body.lean<-.27 and body.lean>-.36 and body.pelvis.z<-.035 and body.pelvis.z>-.08 and chest_forward>.055:forward_frames+=1
+						if frame>=60 and frame<120:
+							max_stride=maxf(max_stride,absf((p.foot_r-p.foot_l).dot(direction)))
+							for leg in range(2):
+								if [p.lift_l,p.lift_r][leg]<.001 and previous_lifts[leg]>.001:touchdowns+=1
 						max_offset=maxf(max_offset,maxf(p.foot_l.distance_to(p.pos),p.foot_r.distance_to(p.pos)))
 						max_mid=maxf(max_mid,((p.foot_l+p.foot_r)*.5).distance_to(p.pos))
 						var feet=[p.foot_l,p.foot_r];var lifts=[p.lift_l,p.lift_r]
@@ -46,13 +51,29 @@ func run():
 					result.worst=worst
 					result.max_body_turn=max_turn;result.shuffle_frames=shuffle_frames
 					result.forward_frames=forward_frames;result.max_lean_step=max_lean_step
-					if (direction.y*(1 if index==0 else -1)<-.99 and speed>=4.5 and forward_frames!=60) or max_lean_step>.025 or absf(final_lean)>.001:
+					result.max_stride=max_stride;result.touchdowns=touchdowns
+					if absf(direction.y)>.99 and speed==4.5 and (max_stride<.70 or touchdowns>2):
+						failures+=1;print("STRIDE FAIL ",result)
+					if (direction.y*(1 if index==0 else -1)<-.99 and speed>=4.5 and forward_frames!=60) or max_lean_step>.025 or final_lean>-.16 or final_lean<-.23:
 						failures+=1;print("FORWARD POSTURE FAIL ",result)
 					if absf(direction.x)>.99 and speed<=4.5 and (max_turn>.20 or shuffle_frames!=60):
 						failures+=1;print("LATERAL FACING FAIL ",result)
 					report.append(result)
 					if min_width<.17 or min_hip<.72 or max_offset>.60 or max_mid>.30 or max_foot_speed>3.6+speed*2 or float(plants)/maxi(1,contacts)<.75:
 						failures+=1;print("GAIT FAIL ",result)
+	# The real regression occurs when low incoming-ball preparation overrides
+	# movement facing, not just when running with no nearby shuttle.
+	for index in [0,1]:
+		for direction in [-1,1]:
+			for offset in [-.9,-.3,.3]:
+				var side=1.0 if index==0 else -1.0
+				var p={"pos":Vector2(0,2.5*side),"vel":Vector2(4.5*direction,0),"jump":0.0,"swing":0.0,"charge":-1,"shot":1,"buffer":0.0,"dash":0.0,"landing":0.0,"backhand":false}
+				FOOTWORK.reset(p)
+				for tick in range(60):
+					var shuttle=Vector3(p.pos.x+offset*side,p.pos.y-.3*side,1.2)
+					FOOTWORK.update(p,index,1.0/120,true,true,shuttle,false)
+					if absf(p.body_turn)>.01 or absf(p.hip_turn)>.01:
+						failures+=1;push_error("Incoming low shuttle must not turn A/D movement away from net");break
 	FileAccess.open("res://artifacts/locomotion-test.json",FileAccess.WRITE).store_string(JSON.stringify({"failures":failures,"cases":report},"  "))
 	print("LOCOMOTION: ",report.size()," movement / reversal / stop cases; failures=",failures)
 	quit(1 if failures else 0)

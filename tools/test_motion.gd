@@ -4,6 +4,15 @@ var game
 var checks = 0
 var failures = 0
 const CODEC = preload("res://scripts/state_codec.gd")
+const PEER = preload("res://scripts/peer_link.gd")
+
+class InputProbe extends "res://scripts/main.gd":
+	var sent: Array[Dictionary] = []
+	var writable = true
+	func _net_send(data: Dictionary) -> bool:
+		if not writable: return false
+		sent.append(data)
+		return true
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -88,6 +97,48 @@ func _run() -> void:
 	var max_landing_drift = 0.0
 	var sample = packet(.1)
 	var encoded = CODEC.encode(sample)
+	var legacy = CODEC.encode(sample,2)
+	check(legacy.size()-encoded.size()==76,"Compact cosmetic poses save 76 bytes per independent snapshot")
+	for version in [1,2,3]:
+		var decoded = CODEC.decode(CODEC.encode(sample,version))
+		check(not decoded.is_empty(),"Versions 1, 2 and 3 remain readable")
+		check(decoded.ball==CODEC.decode(legacy).ball and decoded.velocity==CODEC.decode(legacy).velocity,"Physics precision is unchanged by pose compression")
+	var pose_sample = sample.duplicate(true)
+	for p in pose_sample.players:
+		for key in game.FOOTWORK.POSE_VALUES: p.motion[key] = -2.61733
+	var pose_result = CODEC.decode(CODEC.encode(pose_sample))
+	for p in pose_result.players:
+		for key in game.FOOTWORK.POSE_VALUES:
+			check(absf(p.motion[key]+2.61733)<=1.0/8192,"Signed pose quantization stays within its error bound")
+	pose_sample.players[0].motion.body_turn = 9.25
+	var wide_pose = CODEC.encode(pose_sample)
+	check(wide_pose[1]==2 and CODEC.decode(wide_pose).players[0].motion.body_turn==9.25,"Out-of-range future poses fall back without clipping")
+	for length in range(encoded.size()):
+		check(CODEC.decode(encoded.slice(0,length)).is_empty(),"Every truncated compact packet is rejected")
+	var recent: Array[PackedByteArray] = []
+	var discarded = 0
+	for sequence in [10,9,11,11,8,12,7]:
+		var queued = sample.duplicate(true)
+		queued.seq = sequence
+		discarded += PEER.retain_latest(recent,CODEC.encode(queued))
+	check(recent.size()==2 and CODEC.sequence(recent[0])==11 and CODEC.sequence(recent[1])==12 and discarded==5,"Backlog retains only newest distinct frames before decoding")
+	var probe = InputProbe.new()
+	probe.last_sent_move = Vector2.ZERO
+	probe.move_refresh = 0
+	probe._send_movement(Vector2.RIGHT)
+	check(probe.sent.size()==1 and probe.sent[0].x==-1,"Direction changes send immediately without waiting for snapshot interval")
+	probe._send_movement(Vector2.RIGHT)
+	check(probe.sent.size()==1,"Unchanged movement is not sent each render frame")
+	probe.move_refresh = .1
+	probe._send_movement(Vector2.RIGHT)
+	check(probe.sent.size()==2,"Lost movement repairs at 100 ms refresh")
+	probe.writable = false
+	probe._send_movement(Vector2.ZERO)
+	check(probe.last_sent_move==Vector2.RIGHT,"Congestion does not mark an unsent stop as delivered")
+	probe.writable = true
+	probe._send_movement(Vector2.ZERO)
+	check(probe.sent.size()==3 and probe.sent.back().x==0,"Stop retries immediately when channel drains")
+	probe.free()
 	check(encoded.size()<600,"Binary full snapshot stays below 600 bytes")
 	check(encoded.size()<JSON.stringify(sample).to_utf8_buffer().size()*.35,"Binary snapshot removes more than 65 percent of JSON payload")
 	check(CODEC.decode(encoded.slice(0,150)).is_empty(),"Truncated packets are rejected")
@@ -155,6 +206,6 @@ func _run() -> void:
 		game.queue_free()
 		quit(1)
 		return
-	print("MOTION / P2 VIEW PASS: ",checks," checks; snapshot bytes=",encoded.size(),"; prediction drift=",max_landing_drift)
+	print("MOTION / P2 VIEW PASS: ",checks," checks; snapshot bytes=",encoded.size(),"; previous bytes=",legacy.size(),"; prediction drift=",max_landing_drift)
 	game.queue_free()
 	quit(0)

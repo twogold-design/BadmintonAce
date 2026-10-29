@@ -55,8 +55,9 @@ async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);awai
  const sa=await state(a),sb=await state(b);
  assert.ok(sa.peer_ready&&sb.peer_ready&&sa.peer_received>0&&sb.peer_received>0,'Gameplay flows directly over WebRTC');
  assert.ok(sa.snapshot_bytes>0&&sa.snapshot_bytes<600,'Compact binary snapshots stay below 600 bytes');
- assert.equal(sa.snapshot_version,2,'Host negotiates jump-pose snapshots');
- assert.equal(sb.snapshot_version,2,'Guest negotiates the same animation format');
+ assert.equal(sa.snapshot_version,3,'Host negotiates compact cosmetic poses');
+ assert.equal(sb.snapshot_version,3,'Guest negotiates the same animation format');
+ assert.ok(sa.snapshot_bytes<=420,'Compact poses reduce snapshots without reducing physics precision');
  assert.ok(sa.players[1][0]<-1.5,'Guest screen-right moves toward negative world X');
  assert.ok(Math.abs(sa.players[1][0]-sb.players[1][0])<0.8,'Remote positions synchronized');
  await a.screenshot({path:path.join(root,'artifacts','game.png')});

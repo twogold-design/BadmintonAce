@@ -19,6 +19,7 @@ func run():
 		var serving=false
 		var backhand=int(i/6)%2==1
 		var ball=Vector3(-.18,-.35,1.05) if serving else Vector3(-.75 if backhand else .50,-.45,1.05)
+		if "--close" in OS.get_cmdline_user_args() and not backhand:ball=Vector3(.15,-.30,1.25)
 		p.backhand=backhand;p.stroke="net"
 		p.shot=0
 		if serving:FOOTWORK.set_service_stance(p,0,false);p.service_long=1.0
@@ -45,4 +46,5 @@ func run():
 	await process_frame;await RenderingServer.frame_post_draw
 	var output="res://artifacts/net-motion-side.png" if "--side" in OS.get_cmdline_user_args() else "res://artifacts/net-motion-review.png"
 	if "--back" in OS.get_cmdline_user_args():output="res://artifacts/net-balance-review.png"
+	if "--close" in OS.get_cmdline_user_args():output="res://artifacts/net-close-review.png"
 	root.get_texture().get_image().save_png(output);quit()

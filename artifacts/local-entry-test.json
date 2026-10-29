@@ -15,7 +15,7 @@
   },
   {
     "label": "http",
-    "url": "http://127.0.0.1:18765/index.html",
+    "url": "http://127.0.0.1:18766/index.html",
     "menu": true,
     "playerServeAndAiReturn": true,
     "errors": []

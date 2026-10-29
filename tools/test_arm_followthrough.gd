@@ -31,6 +31,9 @@ func run():
      cases+=1
      var last_hand=Basis.IDENTITY
      var last_elbow=Vector3.ZERO
+     var push_start=Vector3.ZERO
+     var push_face=Basis.IDENTITY
+     var push_previous=Vector3.ZERO
      for tick in range(62):
       p.swing=0.0 if serving and tick==0 else .48*(1-float(maxi(0,tick-1))/60)
       if tick>1:FOOTWORK.update(p,index,.48/60,true,false,contact,false)
@@ -47,6 +50,15 @@ func run():
       var left=frame.chest_basis.inverse()*(model.joint_points.lowerarm_l-model.joint_points.upperarm_l)
       var label=avatar+" P"+str(index+1)+" "+stroke+" "+str(backhand)+" tick "+str(tick)
       var prefix="serve_" if serving else "return_"
+      if serving and tick>=1 and tick<=25:
+       var held=frame.chest_basis.inverse()*(model.joint_points.hand_r-frame.chest)
+       var face=frame.chest_basis.inverse()*model.racket_basis_current
+       if tick==1:push_start=held;push_previous=held;push_face=face
+       record("serve_push_sideways",absf(held.x-push_start.x),label)
+       record("serve_push_backwards",held.z-push_previous.z,label)
+       record("serve_push_face_turn",rad_to_deg(push_face.get_rotation_quaternion().angle_to(face.get_rotation_quaternion())),label)
+       if tick==25:check(held.z<push_start.z-.055,"Both serves visibly push forwards before recovery: "+label)
+       push_previous=held
       record(prefix+"elbow_behind",local_elbow.z,label)
       record(prefix+"left_clamped",left.x,label)
       record(prefix+"forearm_twist",rad_to_deg(absf(hinge.signed_angle_to(target,forearm))),label)
@@ -61,6 +73,8 @@ func run():
   for bound in [["elbow_behind",.04],["left_clamped",-.055],["wrist_twist",15.0],["wrist_bend",55.0],["elbow_step",.07],["hand_step",25.0],["forearm_twist",100.0 if prefix=="serve_" else 145.0]]:
    var key=prefix+bound[0]
    check(stats[key]<bound[1],key+" exceeded: "+str(stats[key])+" at "+examples[key])
+ for bound in [["serve_push_sideways",.02],["serve_push_backwards",.001],["serve_push_face_turn",8.0]]:
+  check(stats[bound[0]]<bound[1],bound[0]+" exceeded: "+str(stats[bound[0]]))
  var report={"checks":checks,"failures":failures,"motion_cases":cases,"frames_per_case":62,"maxima":stats,"worst_cases":examples}
  var output=FileAccess.open("res://artifacts/arm-followthrough-test.json",FileAccess.WRITE)
  output.store_string(JSON.stringify(report,"  ")+"\n");output.close()

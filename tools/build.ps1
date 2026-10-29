@@ -29,7 +29,11 @@ body,#status{background:#0b1721}#status-splash{display:none!important}
 $html = $html.Replace('</head>', $css + '</head>')
 [IO.File]::WriteAllText($htmlPath,$html,[Text.UTF8Encoding]::new($false))
 $rootEntry = $html.Replace('<head>', '<head><base href="./build/web/">')
-[IO.File]::WriteAllText((Join-Path $projectRoot 'index.html'),$rootEntry,[Text.UTF8Encoding]::new($false))
+# Publish by rename: an open browser can memory-map the existing entry and
+# prevent truncation in place. Keep the new file on the same project volume.
+$rootEntryStaging = Join-Path $projectRoot '.runtime\index.html.next'
+[IO.File]::WriteAllText($rootEntryStaging,$rootEntry,[Text.UTF8Encoding]::new($false))
+[IO.File]::Move($rootEntryStaging,(Join-Path $projectRoot 'index.html'),$true)
 Copy-Item -LiteralPath 'tools\web-config.js' -Destination 'build\web\config.js' -Force
 Copy-Item -LiteralPath 'assets\athletes\ATHLETE-LICENSE.txt' -Destination 'build\web\ATHLETE-LICENSE.txt' -Force
 Copy-Item -LiteralPath 'assets\FONT-LICENSE.txt' -Destination 'build\web\FONT-LICENSE.txt' -Force

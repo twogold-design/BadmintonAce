@@ -33,7 +33,7 @@ func run():
 					if not game._try_hit(0,2):push_error("Preview smash missed")
 					p.charge=-1
 				model.animate(p,0,game.ball,float(tick)/120)
-		model.position=Vector3(0,p.jump,0);model.rotation.y=PI-.55
+		model.position=Vector3(0,p.jump,0);model.rotation.y=PI/2 if "--side" in OS.get_cmdline_user_args() else PI-.55
 		var floor_=MeshInstance3D.new();floor_.mesh=PlaneMesh.new();floor_.mesh.size=Vector2(1.5,1.5);stage.add_child(floor_)
 		floor_.material_override=ATHLETE.material(Color("263e44"))
 		var camera=Camera3D.new();stage.add_child(camera);camera.projection=Camera3D.PROJECTION_ORTHOGONAL;camera.size=3.9
@@ -43,4 +43,4 @@ func run():
 		label.add_theme_font_override("font",load("res://assets/NotoSansSC.ttf"));label.add_theme_font_size_override("font_size",17)
 	await process_frame;await RenderingServer.frame_post_draw
 	await process_frame;await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://artifacts/forehand-jump-review.png");quit()
+	root.get_texture().get_image().save_png("res://artifacts/forehand-jump-side.png" if "--side" in OS.get_cmdline_user_args() else "res://artifacts/forehand-jump-review.png");quit()

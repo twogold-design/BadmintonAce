@@ -7,11 +7,15 @@ const FEMALE = preload("res://assets/athletes/female.glb")
 const RACKET_CENTER = .58
 const HAND_GRIP = Basis(Vector3(0,0,-1),Vector3(1,0,0),Vector3(0,-1,0))
 const PALM_ANCHOR = Vector3(.105,-.028,0)
-const FOREHAND_ROLL = -PI/6
-const READY_HAND = Vector3(.34,-.08,-.32) # Relative to the chest.
-const READY_AXIS = Vector3(.18,.93,-.32)
-const READY_POLE = Vector3(.38,-.45,-.12)
+## HAND_GRIP's zero roll places the palm across the string bed. A basic
+## handshake/V grip brings the palm close to its plane, with a 15 degree bevel.
+const FOREHAND_ROLL = -5*PI/12
+const READY_HAND = Vector3(.44,.14,-.22) # Relative to the chest.
+const READY_AXIS = Vector3(-.50,.85,-.15)
+const READY_POLE = Vector3(.38,-.35,-.12)
 const FREE_READY = Vector3(-.38,-.12,-.20)
+const NET_CONTACT_TOLERANCE = .28
+const NET_MIN_FLEX = PI/6 # 30 degrees away from a locked straight elbow.
 
 static func forearm_racket_basis(shaft: Vector3, forearm: Vector3, roll: float) -> Basis:
 	var along=shaft.normalized()
@@ -213,6 +217,40 @@ static func service_contact(avatar: String, shoulder: Vector3, contact: Vector3,
 static func down_basis(direction: Vector3) -> Basis:
 	return Basis(Quaternion(Vector3.DOWN,direction.normalized()))
 
+static func overhead_release(avatar: String, start_frame: Basis, start_relative: Basis) -> Dictionary:
+	var shoulder=measured(avatar,"upperarm_r")
+	var upper=shoulder.distance_to(measured(avatar,"lowerarm_r"))
+	var lower=measured(avatar,"lowerarm_r").distance_to(measured(avatar,"hand_r"))
+	var wanted=Vector3(-.42,shoulder.y-.55,-.38)
+	var best={"cost":INF}
+	# Choose the arm path around a bounded pronation, not an unrelated wrist
+	# orientation obtained by solving a second imaginary contact at the hip.
+	for ux in [-.08,.02,.12]:
+		for uy in [-.12,-.20]:
+			for uz in [-.12,-.22]:
+				var up=Vector3(ux,uy,uz).normalized()
+				var elbow=shoulder+up*upper
+				for lx in [-.9,-.6,-.3]:
+					for ly in [-.9,-.5,-.1]:
+						for lz in [-.8,-.4,-.1]:
+							var down=Vector3(lx,ly,lz).normalized()
+							var flex=acos(clampf(up.dot(down),-1,1))
+							if flex<.25 or flex>2.1:continue
+							var hinge=up.cross(down).normalized()
+							var upper_frame=Basis(up,hinge,up.cross(hinge)).orthonormalized()
+							var lower_frame=Basis(down,hinge,down.cross(hinge)).orthonormalized()
+							for pronation in [-.25,-.40,-.55]:
+								var relative=Basis(Vector3.RIGHT,pronation)*start_relative
+								var grip=lower_frame*relative*HAND_GRIP.inverse()*Basis(Vector3.UP,FOREHAND_ROLL).inverse()
+								var hand=elbow+down*lower
+								var center=hand+grip*(grip_mount_for(avatar,false)+Vector3(0,RACKET_CENTER,0))
+								var cost=center.distance_squared_to(wanted)*12
+								cost+=maxf(0,center.x+.28)*500+maxf(0,center.y-(shoulder.y-.48))*500
+								cost+=maxf(0,grip.y.x+.15)*200+maxf(0,grip.y.y+.15)*200+maxf(0,center.z+.12)*100
+								cost+=start_frame.get_rotation_quaternion().angle_to(upper_frame.get_rotation_quaternion())*.12
+								if cost<float(best.cost):best={"cost":cost,"upper_frame":upper_frame,"flex":flex,"relative":relative}
+	return best
+
 static func solve_joint(start: Vector3, finish: Vector3, pole: Vector3, upper: float, lower: float) -> Vector3:
 	var vector = finish-start
 	var distance = clampf(vector.length(),absf(upper-lower)+.001,upper+lower-.001)
@@ -290,7 +328,12 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	var lunge = float(p.get("lunge",0))
 	var receiving = float(p.get("receive_ready",0))
 	var serving = float(p.get("service_ready",0))
-	var lean = -.075*receiving
+	var lean = -.20*receiving-.04*serving
+	if float(p.get("swing",0))>0 and str(p.get("stroke",""))=="overhead" and not bool(p.get("backhand",false)):
+		var follow=clampf(1-float(p.swing)/.48,0,1)
+		# A small chest-led follow-through accompanies axial shoulder rotation.
+		# Zero at impact and recovery; never stretch the shoulder away from its rig.
+		lean-=.065*smoothstep(.02,.25,follow)*(1-smoothstep(.55,1,follow))
 	var turn = -side*float(p.get("body_turn",0))
 	var hip_turn = -side*float(p.get("hip_turn",0))
 	var left_foot: Vector2 = p.get("foot_l",p.pos+Vector2(-.16,0)) if index==0 else p.get("foot_r",p.pos+Vector2(.16,0))
@@ -307,16 +350,22 @@ static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	if float(p.get("swing",0))>0 and p.has("contact") and p.contact.z-float(p.jump)>1.9:
 		reach_up=1-smoothstep(.10,.55,1-float(p.swing)/.48)
 	athletic*=1-reach_up
+	# An athletic ready stance stays hinged forward even at zero speed.
+	# Carry part of the pitch through the hips, not just a bend in the spine.
+	var stance_lean=-.19*athletic
+	var air_weight=1-on_ground
+	var air_lean=-.10*air_weight
+	lean+=stance_lean+air_lean
 	# Approach the net with a small whole-torso pitch and a forward pelvis load.
 	# Derive it from the shared velocity in player space, so P2 leans toward its
 	# own net. Fade into braking/lunging and high contact instead of bowing there.
 	var forward_speed=maxf(0,-p.vel.y*side)
 	var forward_weight=smoothstep(.2,4.5,forward_speed)*smoothstep(0,.6,forward_speed/maxf(.01,p.vel.length()))
 	forward_weight*=athletic*(1-.85*lunge)*(1-.75*rescue)*(1-float(p.get("jump_crouch",0)))
-	var run_lean=-.15*forward_weight
-	var hip_lean=run_lean*.60
+	var run_lean=-.13*forward_weight
+	var hip_lean=stance_lean*.45+run_lean*.60+air_lean*.45-.07*receiving
 	lean+=run_lean
-	crouch+=(.045+.022*smoothstep(.3,3.5,p.vel.length()))*athletic
+	crouch+=(.065+.022*smoothstep(.3,3.5,p.vel.length()))*athletic
 	crouch+=.12*float(p.get("jump_crouch",0))
 	crouch+=.065*sin(PI*clampf(float(p.get("landing",0))/.18,0,1))*on_ground
 	var rest_pelvis = measured(avatar,"pelvis")
@@ -399,7 +448,7 @@ static func can_reach(p: Dictionary, index: int, shuttle: Vector3, stroke: Strin
 			var along=lower*cos(deg_to_rad(50))+PALM_ANCHOR.x*scale
 			var across=lower*sin(deg_to_rad(50))+offset-.035
 			reach=minf(reach,upper+sqrt(along*along+across*across)-.025)
-		if contact.distance_to(frame.shoulder)>reach:return false
+		if contact.distance_to(frame.shoulder)>reach+(NET_CONTACT_TOLERANCE if underarm else 0.0):return false
 		var upper_length=measured(avatar,"upperarm_r").distance_to(measured(avatar,"lowerarm_r"))
 		var lower_length=measured(avatar,"lowerarm_r").distance_to(measured(avatar,"hand_r"))
 		var offset=clampf(contact.distance_to(frame.shoulder)-upper_length-lower_length+.004,RACKET_CENTER,RACKET_CENTER+.12)
@@ -408,6 +457,17 @@ static func can_reach(p: Dictionary, index: int, shuttle: Vector3, stroke: Strin
 	return true
 
 static func underarm_contact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool) -> Dictionary:
+	var best=underarm_contact_exact(avatar,shoulder,contact,chest_basis,offset,backhand)
+	if best.valid:return best
+	# A close body return may miss the exact shuttle centre by a small amount.
+	# Prefer a relaxed wrist/elbow to a tightly folded arm or a large body turn.
+	for shift in [Vector3(0,0,-.26),Vector3(.18,0,0),Vector3(-.18,0,0),Vector3(0,0,.20),Vector3(.14,0,-.16),Vector3(-.14,0,-.16),Vector3(0,.16,-.10),Vector3(0,-.16,-.10)]:
+		var candidate=underarm_contact_exact(avatar,shoulder,contact+chest_basis*shift,chest_basis,offset,backhand)
+		candidate.cost+=shift.length()*45
+		if candidate.valid:return candidate
+	return best
+
+static func underarm_contact_exact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool) -> Dictionary:
 	var upper=measured(avatar,"upperarm_r").distance_to(measured(avatar,"lowerarm_r"))
 	var lower=measured(avatar,"lowerarm_r").distance_to(measured(avatar,"hand_r"))
 	var change=Basis(Vector3.UP,-PI/4 if backhand else FOREHAND_ROLL)
@@ -417,6 +477,10 @@ static func underarm_contact(avatar: String, shoulder: Vector3, contact: Vector3
 	var across=radial.cross(tangent).normalized()
 	var wanted=Vector3.DOWN if backhand else Vector3.UP
 	var best={"axis":radial,"hand":contact-radial*offset,"cost":INF,"basis":Basis(Quaternion(Vector3.UP,radial)),"valid":false,"offset":offset}
+	var chest=shoulder-chest_basis*(measured(avatar,"upperarm_r")-measured(avatar,"spine_03"))
+	var contact_side=(chest_basis.inverse()*(contact-chest)).x
+	if (not backhand and contact_side<.10) or (backhand and contact_side>-.10):return best
+	var compact=(chest_basis.inverse()*(contact-shoulder)).z>-.45 or contact.y>shoulder.y+.05
 	for tilt in [.10,.25,.40,.55,.70,.85,1.0,1.15,1.30,1.45,1.60,1.80,2.0,2.2]:
 		for i in range(24):
 			var angle=TAU*i/24.0
@@ -430,9 +494,10 @@ static func underarm_contact(avatar: String, shoulder: Vector3, contact: Vector3
 				var grip=hand_frame*HAND_GRIP.inverse()*change.inverse()
 				var hand=contact-shaft*offset-grip*grip_mount_for(avatar,backhand)
 				var distance=shoulder.distance_to(hand)
-				if distance>upper+lower-.002 or distance<absf(upper-lower)+.01:continue
+				var relaxed_reach=sqrt(upper*upper+lower*lower+2*upper*lower*cos(NET_MIN_FLEX))
+				if distance>relaxed_reach or distance<(.27 if backhand or compact else .34):continue
 				var local_hand=chest_basis.inverse()*(hand-shoulder)
-				if local_hand.z>.035:continue
+				if local_hand.z>(.035 if backhand else (-.10 if compact else -.20)):continue
 				var first_elbow=solve_arm_joint(shoulder,hand,hand-hand_frame.x*lower,upper,lower,chest_basis)
 				var arm_axis=(hand-shoulder).normalized()
 				var center=shoulder+arm_axis*(upper*upper-lower*lower+distance*distance)/(2*distance)
@@ -441,17 +506,17 @@ static func underarm_contact(avatar: String, shoulder: Vector3, contact: Vector3
 					if chest_basis.z.dot(elbow-shoulder)>.0351:continue
 					var forearm=(hand-elbow).normalized()
 					var wrist=hand_frame.x.dot(forearm)
-					if wrist<cos(deg_to_rad(48)):continue
+					if wrist<cos(deg_to_rad(38)):continue
 					var hinge=(elbow-shoulder).normalized().cross(forearm).normalized()
 					var up=(hand_frame.y-forearm*hand_frame.y.dot(forearm)).normalized()
 					var twist=absf(hinge.signed_angle_to(up,forearm))
-					if twist>1.8:continue
+					if twist>1.4:continue
 					var cost=(1-wrist)*80+maxf(0,twist-1.4)*40+maxf(0,local_hand.z+.15)*30+maxf(0,.3-distance)*20+absf(roll)*2
 					if contact.y<shoulder.y+.1:cost+=maxf(0,local_hand.y+.15)*80
 					cost+=maxf(0,hand.y-maxf(contact.y+.18,shoulder.y-.40))*240
 					if cost<float(best.cost):best={"axis":shaft,"hand":hand,"elbow":elbow,"basis":grip,"offset":offset,"cost":cost,"valid":true}
 
-	if not best.valid and offset<RACKET_CENTER+.119:return underarm_contact(avatar,shoulder,contact,chest_basis,minf(offset+.04,RACKET_CENTER+.12),backhand)
+	if not best.valid and offset<RACKET_CENTER+.119:return underarm_contact_exact(avatar,shoulder,contact,chest_basis,minf(offset+.04,RACKET_CENTER+.12),backhand)
 	return best
 
 static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool, overhead: bool = false, underarm: bool = false) -> Dictionary:
@@ -468,7 +533,7 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 	var high=contact.y>shoulder.y+.25
 	var pole=shoulder+chest_basis*(Vector3(.16,.10,-.45) if high and backhand else Vector3(.12,-.65,-.08))
 	if high and backhand and contact.x<-.6:pole=shoulder+chest_basis*Vector3(-.20,.05,.15)
-	if overhead and not backhand:pole=shoulder+chest_basis*Vector3(.28,-.16,-.10)
+	if overhead and not backhand:pole=shoulder+chest_basis*Vector3(.40,.12,-.12)
 	var upper=measured(avatar,"upperarm_r").distance_to(measured(avatar,"lowerarm_r"))
 	var lower=measured(avatar,"lowerarm_r").distance_to(measured(avatar,"hand_r"))
 	var best={"axis":radial,"hand":contact-radial*offset,"cost":INF,"basis":Basis(Quaternion(Vector3.UP,radial)),"valid":false,"offset":offset}
@@ -501,6 +566,20 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 			if not high:
 				posture_cost=maxf(0,.23-distance)*100+maxf(0,local_hand.z+.10)*100+maxf(0,local_hand.y+.15)*100+maxf(0,local_elbow.y+.035)*100+maxf(0,.04-local_elbow.x)*100
 			var hinge=(elbow-shoulder).normalized().cross(forearm).normalized()
+			if overhead and not backhand:
+				# Keep the contact elbow on the same raised, outward branch as
+				# the V-grip preparation, rather than choosing a lower-cost fold
+				# that rolls the upper arm almost half a turn on the impact frame.
+				var local_upper=local_elbow.normalized()
+				var preferred_upper=Vector3(1,-.2,0).normalized()
+				var preferred_lower=Vector3(-.5,.51,-.85).normalized()
+				var preferred_hinge=preferred_upper.cross(preferred_lower).normalized()
+				var local_hinge=chest_basis.inverse()*hinge
+				var transported_hinge=Basis(Quaternion(preferred_upper,local_upper))*preferred_hinge
+				if transported_hinge.dot(local_hinge)<cos(deg_to_rad(60)):continue
+				posture_cost+=maxf(0,.02-local_elbow.x)*160
+				posture_cost+=(1-local_hinge.dot(transported_hinge))*35
+				posture_cost+=(1-local_upper.dot(preferred_upper))*8
 			var hand_frame=grip*grip_change
 			var palm_up=hand_frame.x-forearm*hand_frame.x.dot(forearm)
 			var twist=absf(hinge.signed_angle_to(palm_up.normalized(),forearm))
@@ -513,7 +592,7 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 				# Rearcourt backhands strike with the back of the hand towards the net.
 				# Wrist alignment alone also admits the opposite (forehand) palm face.
 				cost+=maxf(0,hand_frame.x.z+.25)*30+(1-absf(grip.z.z))*4
-			if cost<float(best.cost):best={"axis":shaft,"hand":hand,"cost":cost,"basis":grip,"valid":true,"offset":offset,"wrist_dot":forearm.dot(-hand_frame.z)}
+			if cost<float(best.cost):best={"axis":shaft,"hand":hand,"elbow":elbow,"cost":cost,"basis":grip,"valid":true,"offset":offset,"wrist_dot":forearm.dot(-hand_frame.z)}
 	# A tilted shaft can use the outer string bed without stretching the arm.
 	if not best.valid and offset<RACKET_CENTER+.119:
 		return defensive_contact(avatar,shoulder,contact,chest_basis,minf(offset+.04,RACKET_CENTER+.12),backhand,overhead,underarm)
@@ -609,10 +688,10 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var axis = ready_axis.slerp(Vector3(.10,.96,.20).normalized(),prep)
 	var free_hand = lerp_vector(chest+FREE_READY,Vector3(-.34,1.76+height_adjust,-.34),prep)
 	var receive = float(p.get("receive_ready",0))
-	# Lift the forearm from a relaxed, open elbow. The head sits slightly to
-	# the racket side and forward, rather than on a rigid vertical shaft.
-	hand = hand.lerp(Vector3(.33,1.38+height_adjust,-.36),receive)
-	axis = axis.slerp(Vector3(.18,.97,-.12).normalized(),receive)
+	# Lift the forearm from a relaxed, open elbow. Carry the racket inward
+	# and slightly forward, with the same basic grip as ordinary readiness.
+	hand = hand.lerp(chest+READY_HAND,receive)
+	axis = axis.slerp(READY_AXIS.normalized(),receive)
 	free_hand = free_hand.lerp(chest+FREE_READY,receive)
 	if serving:
 		var high = float(p.get("service_long",0))
@@ -702,7 +781,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		arm_pole = (right_shoulder+chest_basis*READY_POLE.lerp(Vector3(.38,-.35,-.12),receive)).lerp(prepared_elbow,compact)
 	if hit and str(p.stroke)=="overhead":
 		# The elbow and forearm travel across the front of the shirt on follow-through.
-		arm_pole = right_shoulder+chest_basis*Vector3(.28,-.16,-.10).lerp(Vector3(.35,-.35,-.30),smoothstep(0,.4,t))
+		arm_pole = right_shoulder+chest_basis*Vector3(.40,.12,-.12).lerp(Vector3(.35,-.35,-.30),smoothstep(0,.4,t))
 		if bool(p.get("backhand",false)):
 			arm_pole=right_shoulder+chest_basis*Vector3(.16,.10,-.45).lerp(Vector3(.12,-.35,-.35),smoothstep(.25,.85,t))
 			if contact.x<-.6:arm_pole=right_shoulder+chest_basis*Vector3(-.20,.05,.15).lerp(Vector3(.12,-.35,-.35),smoothstep(.25,.85,t))
@@ -711,14 +790,14 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var defensive_stroke = hit and str(p.get("stroke","")) in ["net","lift","drive"]
 	var underarm_stroke = hit and str(p.get("stroke","")) in ["net","lift"]
 	var forehand_overhead = hit and str(p.get("stroke",""))=="overhead" and not bool(p.get("backhand",false))
-	var joint_stroke = (underarm_stroke or forehand_overhead) and solved_contact
+	var service_stroke = hit and str(p.get("stroke",""))=="serve"
+	var joint_stroke = (underarm_stroke or forehand_overhead or service_stroke) and solved_contact
 	if defensive_stroke:
 		arm_pole=right_shoulder+chest_basis*Vector3(.12,-.65,-.08).lerp(READY_POLE,smoothstep(.65,1,t))
 		free_hand=chest+chest_basis*(Vector3(-.48,1.10+height_adjust,-.12)-chest)
 	# Backhand uses a thumb grip: turn the handle within the grip, not the wrist
 	# through 180 degrees. The hand frame below remains aligned with the forearm.
 	var backhand_stroke=hit and bool(p.get("backhand",false)) and str(p.get("stroke",""))!="serve"
-	var service_stroke = hit and str(p.get("stroke",""))=="serve"
 	var backhand_grip=backhand_stroke or serving or service_stroke
 	# Waiting and receiving use the same basic forehand V grip. The forearm
 	# determines the palm, rather than a world-facing flat racket plane.
@@ -763,7 +842,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		var upper_length=length_between("upperarm_r","lowerarm_r")
 		var lower_length=length_between("lowerarm_r","hand_r")
 		if not stroke_solution.has("upper_frame"):
-			var contact_elbow=stroke_solution.elbow if underarm_stroke else solve_arm_joint(right_shoulder,contact_hand,arm_pole,upper_length,lower_length,chest_basis)
+			var contact_elbow=stroke_solution.elbow if stroke_solution.has("elbow") else solve_arm_joint(right_shoulder,contact_hand,arm_pole,upper_length,lower_length,chest_basis)
 			var upper_dir=(contact_elbow-right_shoulder).normalized()
 			var lower_dir=(contact_hand-contact_elbow).normalized()
 			var hinge=upper_dir.cross(lower_dir).normalized()
@@ -771,7 +850,7 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 			var lower_frame=Basis(lower_dir,hinge,lower_dir.cross(hinge)).orthonormalized()
 			stroke_solution.upper_frame=chest_basis.inverse()*upper_frame
 			stroke_solution.flex=acos(clampf(upper_dir.dot(lower_dir),-1,1))
-			stroke_solution.hand_relative=lower_frame.inverse()*contact_grip*Basis(Vector3.UP,-PI/4 if backhand_stroke else FOREHAND_ROLL)*HAND_GRIP
+			stroke_solution.hand_relative=lower_frame.inverse()*contact_grip*Basis(Vector3.UP,-PI/4 if backhand_stroke or service_stroke else FOREHAND_ROLL)*HAND_GRIP
 		var rest_shoulder=rest_at("upperarm_r")
 		var rest_hand=rest_at("spine_03")+READY_HAND
 		var rest_elbow=solve_arm_joint(rest_shoulder,rest_hand,rest_shoulder+READY_POLE,upper_length,lower_length,Basis.IDENTITY)
@@ -784,22 +863,32 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 		var rest_relative=rest_lower_frame.inverse()*rest_hand_frame
 		var start_frame:Basis=stroke_solution.upper_frame
 		var follow_frame=Basis(Vector3.RIGHT,.12 if str(p.stroke)=="lift" else .025)*start_frame
-		var follow_flex=maxf(.12,float(stroke_solution.flex)-(.15 if str(p.stroke)=="lift" else .06))
+		var follow_flex=maxf(deg_to_rad(25),float(stroke_solution.flex)-(.10 if str(p.stroke)=="lift" else .05))
 		var start_relative:Basis=stroke_solution.hand_relative
 		var follow_relative=start_relative
+		if service_stroke:
+			if not stroke_solution.has("release"):
+				# Short, forward push from the actual impact pose. Preserve the
+				# hand plane instead of solving a new sideways shaft each frame.
+				var high=0.0 if int(p.shot)==1 else 1.0
+				var start_lower=start_frame.x.rotated(start_frame.y,float(stroke_solution.flex))
+				var start_lower_frame=Basis(start_lower,start_frame.y,start_lower.cross(start_frame.y)).orthonormalized()
+				var start_hand=rest_shoulder+start_frame.x*upper_length+start_lower*lower_length
+				var end_hand=start_hand+Vector3(0,lerpf(.015,.04,high),-lerpf(.07,.12,high))
+				var max_reach=sqrt(upper_length*upper_length+lower_length*lower_length+2*upper_length*lower_length*cos(deg_to_rad(30)))
+				end_hand=rest_shoulder+(end_hand-rest_shoulder).limit_length(max_reach)
+				var end_elbow=solve_arm_joint(rest_shoulder,end_hand,rest_shoulder+start_frame.x*upper_length,upper_length,lower_length,Basis.IDENTITY)
+				var end_upper=(end_elbow-rest_shoulder).normalized()
+				var end_lower=(end_hand-end_elbow).normalized()
+				var hinge=end_upper.cross(end_lower).normalized()
+				var end_lower_frame=Basis(end_lower,hinge,end_lower.cross(hinge)).orthonormalized()
+				stroke_solution.release={"upper_frame":Basis(end_upper,hinge,end_upper.cross(hinge)).orthonormalized(),"flex":acos(clampf(end_upper.dot(end_lower),-1,1)),"relative":end_lower_frame.inverse()*start_lower_frame*start_relative}
+			follow_frame=stroke_solution.release.upper_frame
+			follow_flex=stroke_solution.release.flex
+			follow_relative=stroke_solution.release.relative
 		if forehand_overhead:
 			if not stroke_solution.has("release"):
-				# Release across the body toward the non-racket hip. The contact
-				# target determines both shaft and wrist; no second forward flip.
-				var release=defensive_contact(gender,rest_shoulder,Vector3(-.45,rest_shoulder.y-.55,-.38),Basis.IDENTITY,RACKET_CENTER,false)
-				var release_elbow=solve_arm_joint(rest_shoulder,release.hand,rest_shoulder+Vector3(.12,-.65,-.08),upper_length,lower_length,Basis.IDENTITY)
-				var release_upper=(release_elbow-rest_shoulder).normalized()
-				var release_lower=(release.hand-release_elbow).normalized()
-				var release_hinge=release_upper.cross(release_lower).normalized()
-				release.upper_frame=Basis(release_upper,release_hinge,release_upper.cross(release_hinge)).orthonormalized()
-				release.flex=acos(clampf(release_upper.dot(release_lower),-1,1))
-				release.relative=Basis(release_lower,release_hinge,release_lower.cross(release_hinge)).orthonormalized().inverse()*release.basis*Basis(Vector3.UP,FOREHAND_ROLL)*HAND_GRIP
-				stroke_solution.release=release
+				stroke_solution.release=overhead_release(gender,start_frame,start_relative)
 			follow_frame=stroke_solution.release.upper_frame
 			follow_flex=stroke_solution.release.flex
 			follow_relative=stroke_solution.release.relative
@@ -883,25 +972,31 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var free_pole = left_shoulder+chest_basis*Vector3(-.42,-.45,-.14).lerp(Vector3(-.40,.05,-.1),0.0 if hit else prep)
 	if serving or receive>.01:free_pole=left_shoulder+chest_basis*Vector3(-.38,-.36,-.12)
 	var balance_open=1-smoothstep(.45,1,t) if underarm_stroke else (float(p.get("rescue_weight",0)) if not hit and not serving and local_ball.y<1.9 else 0.0)
+	var balance_twist=0.0
 	if balance_open>0:
-		# The free arm counterbalances the net lunge outside the torso. Scale
-		# by arm length so both avatars retain a relaxed, slightly bent elbow.
+		# Keep the ready stance elbow bend; lift/open the upper arm only nine
+		# degrees instead of reaching the free hand away from the body.
 		var upper_length=length_between("upperarm_l","lowerarm_l")
 		var lower_length=length_between("lowerarm_l","hand_l")
-		var reach=(upper_length+lower_length)*.86
 		var rest_shoulder=rest_at("upperarm_l")-rest_at("spine_03")
-		var open_hand=rest_shoulder+Vector3(-.90,-.32,.08).normalized()*reach
 		var endpoints=[]
-		for target in [[FREE_READY,rest_shoulder+Vector3(-.42,-.45,-.14)],[open_hand,rest_shoulder+Vector3(-.50,-.25,-.35)]]:
-			var elbow=solve_arm_joint(rest_shoulder,target[0],target[1],upper_length,lower_length,Basis.IDENTITY,-1.0)
-			var upper_dir=(elbow-rest_shoulder).normalized()
-			var lower_dir=(target[0]-elbow).normalized()
-			var hinge=upper_dir.cross(lower_dir).normalized()
-			endpoints.append({"frame":Basis(upper_dir,hinge,upper_dir.cross(hinge)).orthonormalized(),"flex":acos(clampf(upper_dir.dot(lower_dir),-1,1))})
+		var resting_elbow=solve_arm_joint(rest_shoulder,FREE_READY,rest_shoulder+Vector3(-.42,-.45,-.14),upper_length,lower_length,Basis.IDENTITY,-1.0)
+		var resting_upper=(resting_elbow-rest_shoulder).normalized()
+		var resting_lower=(FREE_READY-resting_elbow).normalized()
+		var resting_hinge=resting_upper.cross(resting_lower).normalized()
+		var resting_frame=Basis(resting_upper,resting_hinge,resting_upper.cross(resting_hinge)).orthonormalized()
+		var resting_flex=acos(clampf(resting_upper.dot(resting_lower),-1,1))
+		endpoints.append({"frame":resting_frame,"flex":resting_flex})
+		endpoints.append({"frame":Basis(Vector3.BACK,-.16)*resting_frame,"flex":resting_flex})
 		# Interpolate joint angles, not independent wrist/pole positions that
 		# can cross a singularity and switch the elbow to the opposite branch.
 		var upper_frame=Basis(endpoints[0].frame.get_rotation_quaternion().slerp(endpoints[1].frame.get_rotation_quaternion(),balance_open))
 		var flex=lerpf(endpoints[0].flex,endpoints[1].flex,balance_open)
+		var open_frame:Basis=endpoints[1].frame
+		var open_lower=open_frame.x.rotated(open_frame.y,float(endpoints[1].flex))
+		var open_palm=Vector3(.8,-.1,-.7)
+		open_palm=(open_palm-open_lower*open_palm.dot(open_lower)).normalized()
+		balance_twist=clampf(open_frame.y.signed_angle_to(open_palm,open_lower),-2.0,2.0)
 		upper_frame=chest_basis*upper_frame
 		free_pole=left_shoulder+upper_frame.x*upper_length
 		free_hand=free_pole+upper_frame.x.rotated(upper_frame.y,flex)*lower_length
@@ -912,7 +1007,15 @@ func animate(p: Dictionary, index: int, shuttle: Vector3, time: float, serving: 
 	var free_forearm=(free_hand-free_elbow).normalized()
 	var free_hinge=-(free_elbow-left_shoulder).normalized().cross(free_forearm).normalized()
 	var free_basis=Basis(-free_forearm,free_hinge,(-free_forearm).cross(free_hinge)).orthonormalized()
+	var free_twist=0.0
+	if balance_open>0:
+		free_twist=balance_twist*balance_open
+		free_basis=Basis(free_forearm,free_twist)*free_basis
 	limb("upperarm_l","lowerarm_l","hand_l",left_shoulder,free_hand,free_pole,length_between("upperarm_l","lowerarm_l"),length_between("lowerarm_l","hand_l"),free_basis)
+	if bones.has("ace_forearm_l_4"):
+		var lower_basis=desired[bones.lowerarm_l].basis*rests[bones.lowerarm_l].basis.inverse()
+		for segment in range(1,5):
+			pose("ace_forearm_l_"+str(segment),joint_points.lowerarm_l,Basis(free_forearm,free_twist*segment/4.0)*lower_basis)
 	racket_basis_current = racket_basis
 	racket_mount_current = current_mount
 	apply_poses()

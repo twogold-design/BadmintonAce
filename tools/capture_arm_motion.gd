@@ -33,6 +33,7 @@ func run():
 				if tick>0:FOOTWORK.update(p,0,.48/60,true,false,ball,false)
 				model.animate(p,0,ball,0)
 		model.rotation.y=PI-.55
+		if "--side" in OS.get_cmdline_user_args():model.rotation.y=PI/2
 
 		var camera=Camera3D.new();stage.add_child(camera);camera.projection=Camera3D.PROJECTION_ORTHOGONAL;camera.size=1.65
 		camera.position=Vector3(0,1.35,4);camera.look_at(Vector3(0,1.35,0));camera.current=true
@@ -41,4 +42,4 @@ func run():
 		label.add_theme_font_override("font",load("res://assets/NotoSansSC.ttf"));label.add_theme_font_size_override("font_size",18)
 	await process_frame;await RenderingServer.frame_post_draw
 	await process_frame;await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://artifacts/arm-motion-review.png");quit()
+	root.get_texture().get_image().save_png("res://artifacts/arm-motion-side.png" if "--side" in OS.get_cmdline_user_args() else "res://artifacts/arm-motion-review.png");quit()

@@ -37,10 +37,11 @@ func run():
 								var shoulder=model.joint_points.upperarm_r
 								var elbow=model.joint_points.lowerarm_r
 								var forearm=(model.joint_points.hand_r-elbow).normalized()
+								record("racket_arm_straight",(elbow-shoulder).normalized().dot(forearm),label)
 								var palm=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
 								var upper=model.poses[model.bones.upperarm_r].basis*model.rests[model.bones.upperarm_r].basis.inverse()
 								var free_basis=model.poses[model.bones.hand_l].basis*model.rests[model.bones.hand_l].basis.inverse()
-								var free_lower=model.poses[model.bones.lowerarm_l].basis*model.rests[model.bones.lowerarm_l].basis.inverse()
+								var free_lower=model.poses[model.bones.ace_forearm_l_4].basis*model.rests[model.bones.ace_forearm_l_4].basis.inverse()
 								var free_direction=(model.joint_points.hand_l-model.joint_points.lowerarm_l).normalized()
 								record("free_wrist_bend",rad_to_deg(acos(clampf((-free_basis.x).dot(free_direction),-1,1))),label)
 								record("free_wrist_twist",rad_to_deg(absf(free_lower.y.signed_angle_to(free_basis.y,free_direction))),label)
@@ -49,11 +50,21 @@ func run():
 									var facing=(-palm.y).dot(Vector3.DOWN if p.backhand else Vector3.UP)
 									record("palm_wrong_way",-facing,label)
 									var frame=ATHLETE.body_frame(p,index)
+									var free_palm=frame.chest_basis.inverse()*(-free_basis.y)
+									record("free_palm_up",free_palm.y,label)
+									record("free_palm_not_forward",free_palm.z,label)
 									var racket_local=frame.base.inverse()*(model.racket_center_world-model.position)
 									var body_local=frame.chest_basis.inverse()*(racket_local-frame.chest)
 									record("racket_wrong_side",body_local.x if p.backhand else -body_local.x,label)
 									var free=frame.chest_basis.inverse()*(model.joint_points.hand_l-model.joint_points.upperarm_l)
 									var arm_length=model.length_between("upperarm_l","lowerarm_l")+model.length_between("lowerarm_l","hand_l")
+									record("free_reach",free.length()/arm_length,label)
+									var free_upper=(model.joint_points.lowerarm_l-model.joint_points.upperarm_l).normalized()
+									record("free_straight",free_upper.dot(free_direction),label)
+									var local_contact=frame.chest_basis.inverse()*(Vector3(x,height,depth)-shoulder)
+									if not p.backhand and local_contact.z<-.45 and height<shoulder.y+.05:
+										var held=frame.chest_basis.inverse()*(model.joint_points.hand_r-shoulder)
+										record("forehand_tucked",held.z,label)
 									record("free_arm_closed",free.x/arm_length,label)
 									record("free_arm_low",-free.y/arm_length,label)
 								if forearm.dot(-upper.z)<=0:failures+=1;push_error("Reversed elbow: "+label)
@@ -68,9 +79,9 @@ func run():
 								last_elbow=elbow;last_basis=model.racket_basis_current;last_center=model.racket_center_world
 								last_left=model.joint_points.hand_l
 								last_left_basis=free_basis
-	for bound in [["contact_error",.003],["wrist_bend",55.0],["elbow_step",.07],["racket_turn",25.0],["racket_step",.15],["palm_wrong_way",-.15],["racket_wrong_side",0.0]]:
+	for bound in [["contact_error",ATHLETE.NET_CONTACT_TOLERANCE],["wrist_bend",45.0],["elbow_step",.07],["racket_turn",25.0],["racket_step",.15],["palm_wrong_way",-.15],["racket_wrong_side",0.0],["forehand_tucked",-.15],["racket_arm_straight",cos(deg_to_rad(24.5))]]:
 		if maxima[bound[0]]>bound[1]:failures+=1;push_error(bound[0]+": "+str(maxima[bound[0]])+" "+worst[bound[0]])
-	for bound in [["free_arm_closed",-.65],["free_arm_low",.40],["free_arm_step",.07],["free_wrist_bend",5.0],["free_wrist_twist",5.0],["free_hand_turn",25.0]]:
+	for bound in [["free_reach",.88],["free_straight",.75],["free_arm_step",.07],["free_wrist_bend",5.0],["free_wrist_twist",5.0],["free_hand_turn",25.0],["free_palm_up",.40],["free_palm_not_forward",-.08]]:
 		if maxima[bound[0]]>bound[1]:failures+=1;push_error(bound[0]+": "+str(maxima[bound[0]])+" "+worst[bound[0]])
 	if cases<80:failures+=1;push_error("Insufficient playable net cases")
 	# Close body balls retain a playable response through the existing queued

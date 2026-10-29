@@ -36,6 +36,11 @@ func run():
 					check(p.jump==0 and p.lift_l==0 and p.lift_r==0,"Both feet support the loading phase")
 					if p.jump_drive>.4:saw_drive=true
 				if p.jump>0 and takeoff<0:takeoff=float(tick+1)/120
+				if p.jump>.20:
+					check(frame.lean<-.06 and frame.lean>-.20,"Airborne chest stays slightly forward without falling back")
+					check((frame.chest-frame.pelvis).z<-.015,"Airborne shoulders remain ahead of hips")
+					var foot_mid=(frame.lf+frame.rf)*.5-frame.pelvis
+					check(foot_mid.z>-.03 and foot_mid.z<.20,"Airborne feet tuck under or behind hips, not out in front")
 				peak=maxf(peak,p.jump)
 			check(start.pelvis.y-lowest>.08,"Visible knee and hip compression precedes takeoff")
 			max_dip=maxf(max_dip,start.pelvis.y-lowest)
@@ -61,6 +66,7 @@ func run():
 				var relative=model.racket_basis_current.inverse()*palm
 				var bevel=relative*ATHLETE.HAND_GRIP.inverse()
 				check(bevel.get_rotation_quaternion().angle_to(Quaternion.IDENTITY)>deg_to_rad(20),"Forehand retains its side angle instead of a square panhandle grip")
+				check((-palm.y).dot(-model.racket_basis_current.z)>cos(deg_to_rad(20)),"Overhead uses the same handshake grip as the ready stance")
 				var forearm=(model.joint_points.hand_r-model.joint_points.lowerarm_r).normalized()
 				check(palm.x.dot(forearm)>cos(deg_to_rad(55)),"Power rotation does not fold the wrist: "+avatar+" frame "+str(tick)+" angle "+str(rad_to_deg(acos(clampf(palm.x.dot(forearm),-1,1)))))
 				if tick==0:check(model.contact_error<.003,"Forehand still contacts the real shuttle")

@@ -81,30 +81,42 @@ func poll(dt: float) -> void:
 			send({"type":"codec","version":CODEC.VERSION})
 			opened.emit()
 		for channel in [control_channel,state_channel]:
-			var recent_states: Array[Dictionary] = []
+			var recent_states: Array[PackedByteArray] = []
 			while channel != null and channel.get_available_packet_count()>0:
 				var bytes = channel.get_packet()
 				received_bytes += bytes.size()
+				if channel==state_channel and CODEC.sequence(bytes)>=0:
+					received_packets += 1
+					coalesced_states += retain_latest(recent_states,bytes)
+					continue
 				var packet = CODEC.decode(bytes) if not bytes.is_empty() and bytes[0]==186 else JSON.parse_string(bytes.get_string_from_utf8())
 				if packet is Dictionary and not packet.is_empty():
 					if packet.get("type","")=="codec":
 						state_version=clampi(int(packet.get("version",1)),1,CODEC.VERSION)
 						continue
 					received_packets += 1
-					if channel==state_channel and packet.get("type","")=="state":
-						recent_states.append(packet)
-						recent_states.sort_custom(func(a,b): return int(a.get("seq",-1))<int(b.get("seq",-1)))
-						if recent_states.size()>2:
-							recent_states.pop_front()
-							coalesced_states += 1
-					else: packet_received.emit(packet)
+					packet_received.emit(packet)
 			# Keep just the two newest frames needed for interpolation this tick.
-			for packet in recent_states: packet_received.emit(packet)
+			# Decode them only after draining, avoiding pose allocations for old frames.
+			for bytes in recent_states:
+				var packet = CODEC.decode(bytes)
+				if not packet.is_empty(): packet_received.emit(packet)
 	else:
 		interrupted += dt
 		if (not ready and elapsed>20) or (ready and interrupted>12):
 			reported_failure = true
 			failed.emit()
+
+static func retain_latest(recent: Array[PackedByteArray], bytes: PackedByteArray) -> int:
+	var seq = CODEC.sequence(bytes)
+	for existing in recent:
+		if CODEC.sequence(existing)==seq: return 1
+	recent.append(bytes)
+	recent.sort_custom(func(a,b): return CODEC.sequence(a)<CODEC.sequence(b))
+	if recent.size()>2:
+		recent.pop_front()
+		return 1
+	return 0
 
 func close() -> void:
 	if connection != null: connection.close()

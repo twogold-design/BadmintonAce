@@ -51,22 +51,27 @@ def refine_surfaces(gender):
  print('REFINED SURFACES',gender,sum(r['vertices_before'] for r in report),'->',sum(r['vertices_after'] for r in report),'vertices')
 
 def refine_forearms(rig):
+ for side in ['r','l']:
+  refine_forearm(rig,side)
+
+def refine_forearm(rig,side):
  # Four progressively rotated skin bones preserve the elbow and wrist volume.
  # All share the original forearm bind axis; runtime applies 1/4..1 of the roll.
  bpy.context.view_layer.objects.active=rig;rig.select_set(True)
  bpy.ops.object.mode_set(mode='EDIT')
- source=rig.data.edit_bones['lowerarm_r']
+ source=rig.data.edit_bones['lowerarm_'+side]
  for i in range(1,5):
-  name='ace_forearm_r_'+str(i)
+  name='ace_forearm_'+side+'_'+str(i)
   if name not in rig.data.edit_bones:
    bone=rig.data.edit_bones.new(name);bone.head=source.head;bone.tail=source.tail;bone.roll=source.roll;bone.parent=source
  bpy.ops.object.mode_set(mode='OBJECT')
- source=rig.data.bones['lowerarm_r'];start=source.head_local;vector=source.tail_local-start
+ source=rig.data.bones['lowerarm_'+side];start=source.head_local;vector=source.tail_local-start
+ marker='ace_forearm_skin' if side=='r' else 'ace_forearm_skin_l'
  for obj in bpy.context.scene.objects:
-  if obj.type!='MESH' or obj.get('ace_forearm_skin',False):continue
-  original=obj.vertex_groups.get('lowerarm_r')
+  if obj.type!='MESH' or obj.get(marker,False):continue
+  original=obj.vertex_groups.get('lowerarm_'+side)
   if not original:continue
-  groups=[original]+[obj.vertex_groups.get('ace_forearm_r_'+str(i)) or obj.vertex_groups.new(name='ace_forearm_r_'+str(i)) for i in range(1,5)]
+  groups=[original]+[obj.vertex_groups.get('ace_forearm_'+side+'_'+str(i)) or obj.vertex_groups.new(name='ace_forearm_'+side+'_'+str(i)) for i in range(1,5)]
   count=0
   for v in obj.data.vertices:
    weight=next((g.weight for g in v.groups if g.group==original.index),0)
@@ -76,8 +81,8 @@ def refine_forearms(rig):
    original.remove([v.index])
    groups[slot].add([v.index],weight*(1-mix),'REPLACE')
    groups[slot+1].add([v.index],weight*mix,'REPLACE');count+=1
-  obj['ace_forearm_skin']=True
-  print('FOREARM SKIN',obj.name,count)
+  obj[marker]=True
+  print('FOREARM SKIN',side,obj.name,count)
 
 def write_measurements(rig,gender):
  measures={b.name:{'head':[round(v,7) for v in (b.head_local.x,b.head_local.z,-b.head_local.y)],'tail':[round(v,7) for v in (b.tail_local.x,b.tail_local.z,-b.tail_local.y)],'parent':b.parent.name if b.parent else None} for b in rig.data.bones}

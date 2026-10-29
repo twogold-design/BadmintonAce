@@ -31,7 +31,12 @@ func run():
 					check(palm.x.dot(forearm)>cos(deg_to_rad(35)),"Waiting wrist follows forearm")
 					check(absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))<deg_to_rad(15),"Waiting wrist does not carry residual forearm twist")
 					var face=frame.chest_basis.inverse()*model.racket_basis_current.z
-					check(face.x>.25 and face.z>.25,"Waiting basic forehand grip keeps the string bed oblique")
+					var shaft=frame.chest_basis.inverse()*model.racket_basis_current.y
+					check(shaft.y>.75 and shaft.y<.93 and shaft.z<-.10 and shaft.x<-.30,"Ready racket is raised with a modest inward and forward tilt")
+					check(face.x>.30 and face.z>.10 and face.z<.90,"Waiting string bed closes inward, not outward")
+					check((frame.chest_basis.inverse()*forearm).y>.48,"Waiting forearm is raised above the previous low carry")
+					check((-palm.y).dot(-model.racket_basis_current.z)>cos(deg_to_rad(20)),"V grip keeps the palm near the string-bed plane, not across it")
+					check((frame.chest_basis.inverse()*(-palm.y)).y<-.15,"Ready racket palm faces diagonally down")
 					var scale=model.rest_at("hand_r").distance_to(model.rest_at("middle_01_r"))/.1165
 					var socket=model.joint_points.hand_r+palm*model.PALM_ANCHOR*scale
 					var handle=model.joint_points.hand_r+model.racket_basis_current*(model.racket_mount_current+Vector3(0,.035,0))
@@ -70,11 +75,12 @@ func run():
 						check(absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))<deg_to_rad(15),"Service preparation carries twist through forearm")
 						if not serving:
 							check(head.z<-.25 and head.y>1.4,"Receiver presents raised racket in front of body")
-							check(forearm.y>sin(deg_to_rad(10)),"Receiver forearm slopes upward: "+avatar+" "+str(forearm.y))
+							check((frame.chest_basis.inverse()*forearm).y>.48,"Receiver forearm slopes upward: "+avatar+" "+str(forearm.y))
 							var face=frame.chest_basis.inverse()*model.racket_basis_current.z
 							# Check the signed direction in the player's frame: an absolute
 							# angle accepts the opposite grip rotation as equally correct.
-							check(face.x>.25 and face.z>.25,"Receiver basic forehand grip turns in the correct direction: "+avatar+" "+str(face))
+							check(face.x>.30 and face.z>.10 and face.z<.90,"Receiver string bed closes inward: "+avatar+" "+str(face))
+							check((frame.chest_basis.inverse()*(-palm.y)).y<-.15,"Receiver palm faces diagonally down")
 							var hand_scale=model.rest_at("hand_r").distance_to(model.rest_at("middle_01_r"))/.1165
 							var socket=model.joint_points.hand_r+palm*model.PALM_ANCHOR*hand_scale
 							var handle=model.joint_points.hand_r+model.racket_basis_current*(model.racket_mount_current+Vector3(0,.035,0))
