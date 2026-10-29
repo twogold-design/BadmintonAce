@@ -37,6 +37,17 @@ func run():
 								var shoulder=model.joint_points.upperarm_r
 								var elbow=model.joint_points.lowerarm_r
 								var forearm=(model.joint_points.hand_r-elbow).normalized()
+								var body=ATHLETE.body_frame(p,index)
+								var head=body.base.inverse()*(model.racket_center_world-model.position)
+								var handle=head-model.racket_basis_current.y*ATHLETE.RACKET_CENTER
+								for segment in [[shoulder,elbow,.04],[elbow,model.joint_points.hand_r,.03],[handle,head,.01],[head-model.racket_basis_current.x*.13,head+model.racket_basis_current.x*.13,.01]]:
+									for sample in range(1,20):
+										var local=body.chest_basis.inverse()*(segment[0].lerp(segment[1],sample/20.0)-body.chest)
+										if local.y<-.40 or local.y>.07:continue
+										var width=(.16 if avatar=="female" else .20)+segment[2]
+										var depth_=(.12 if avatar=="female" else .14)+segment[2]
+										record("torso_penetration",1-pow(local.x/width,2)-pow(local.z/depth_,2),label)
+
 								record("racket_arm_straight",(elbow-shoulder).normalized().dot(forearm),label)
 								var palm=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
 								var upper=model.poses[model.bones.upperarm_r].basis*model.rests[model.bones.upperarm_r].basis.inverse()
@@ -68,7 +79,11 @@ func run():
 									record("free_arm_closed",free.x/arm_length,label)
 									record("free_arm_low",-free.y/arm_length,label)
 								if forearm.dot(-upper.z)<=0:failures+=1;push_error("Reversed elbow: "+label)
-								if tick==0:record("contact_error",model.contact_error,label)
+								if tick==0:
+									record("contact_error",model.contact_error,label)
+									var ball_local=body.chest_basis.inverse()*(Vector3(x,height,depth)-body.chest)
+									var close_body=absf(ball_local.x)<.40 and ball_local.z>-.35
+									record("body_contact_error" if close_body else "regular_contact_error",model.contact_error,label)
 								record("wrist_bend",rad_to_deg(acos(clampf(palm.x.dot(forearm),-1,1))),label)
 								if tick>0:
 									record("elbow_step",elbow.distance_to(last_elbow),label)
@@ -79,7 +94,7 @@ func run():
 								last_elbow=elbow;last_basis=model.racket_basis_current;last_center=model.racket_center_world
 								last_left=model.joint_points.hand_l
 								last_left_basis=free_basis
-	for bound in [["contact_error",ATHLETE.NET_CONTACT_TOLERANCE],["wrist_bend",45.0],["elbow_step",.07],["racket_turn",25.0],["racket_step",.15],["palm_wrong_way",-.15],["racket_wrong_side",0.0],["forehand_tucked",-.15],["racket_arm_straight",cos(deg_to_rad(24.5))]]:
+	for bound in [["torso_penetration",0.0],["regular_contact_error",ATHLETE.NET_VISUAL_TOLERANCE],["body_contact_error",ATHLETE.NET_BODY_VISUAL_TOLERANCE],["wrist_bend",20.0],["elbow_step",.07],["racket_turn",25.0],["racket_step",.15],["palm_wrong_way",-.15],["racket_wrong_side",0.0],["forehand_tucked",-.15],["racket_arm_straight",cos(deg_to_rad(44.5))]]:
 		if maxima[bound[0]]>bound[1]:failures+=1;push_error(bound[0]+": "+str(maxima[bound[0]])+" "+worst[bound[0]])
 	for bound in [["free_reach",.88],["free_straight",.75],["free_arm_step",.07],["free_wrist_bend",5.0],["free_wrist_twist",5.0],["free_hand_turn",25.0],["free_palm_up",.40],["free_palm_not_forward",-.08]]:
 		if maxima[bound[0]]>bound[1]:failures+=1;push_error(bound[0]+": "+str(maxima[bound[0]])+" "+worst[bound[0]])

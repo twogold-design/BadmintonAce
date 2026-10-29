@@ -104,6 +104,9 @@ var password_input: LineEdit
 var net_match_id = ""
 var result_recorded = false
 var net_match_closed = false
+var net_preparing = false
+var net_prepare_remaining = 0.0
+var net_prepare_sent = -1
 var result_reason = ""
 var board_items: ItemList
 var home_leaders_panel: Control
@@ -112,6 +115,8 @@ var rooms_loaded = false
 var create_room_button: Button
 var join_room_button: Button
 var close_room_button: Button
+var lobby_return_button: Button
+var room_exit_panel: Control
 var shot_rng = RandomNumberGenerator.new()
 var authenticated = false
 var offline_mode = false
@@ -224,6 +229,7 @@ func _reset_players() -> void:
 
 func _clear_ui() -> void:
 	home_leaders_panel = null
+	room_exit_panel = null
 	for child in ui.get_children():
 		ui.remove_child(child)
 		child.queue_free()
@@ -516,7 +522,11 @@ func _toggle_sound() -> void:
 	if screen == "menu": _build_menu()
 	elif paused: _pause_menu()
 
-func start_game(new_mode: String) -> void:
+func start_game(new_mode: String, prepare_online: bool = false) -> void:
+	net_preparing = new_mode=="online" and prepare_online
+	net_prepare_remaining = 10.0 if net_preparing else 0.0
+	net_prepare_sent = -1
+	remote_move = Vector2.ZERO
 	net_state_seq = 0
 	received_state_seq = -1
 	net_input_seq = 0
@@ -618,6 +628,9 @@ func _show_help() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or event.echo: return
 	var code = event.physical_keycode
+	if screen=="lobby" and is_instance_valid(room_exit_panel):
+		if event.pressed and code==KEY_ESCAPE: _cancel_lobby_return()
+		return
 	if event.pressed and code == KEY_ESCAPE:
 		if screen == "menu" and is_instance_valid(home_leaders_panel) and home_leaders_panel.visible:
 			_toggle_home_leaders()
@@ -634,7 +647,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.pressed and code == KEY_C and screen == "game":
 		baseline_camera = not baseline_camera
 		_save_settings()
-	if screen != "game" or paused or phase == "end": return
+	if screen != "game" or paused or phase == "end" or net_preparing: return
 	if mode == "online" and net_role == "guest":
 		for s in range(3):
 			if code == KEYS[0][s]: _net_send({"type":"input", "action":"shot", "shot":s,"pressed":event.pressed})
@@ -680,11 +693,27 @@ func _dash(i: int) -> void:
 func _process(delta: float) -> void:
 	clock_time += delta
 	_network_process(delta)
+	_update_preparation(delta)
 	if arena!=null: arena.sync(self,delta)
 	queue_redraw()
 
+func _update_preparation(dt: float) -> void:
+	if not net_preparing or screen!="game" or mode!="online" or net_match_closed or phase=="end": return
+	if not paused: net_prepare_remaining = maxf(0,net_prepare_remaining-dt)
+	if net_role!="host": return # Guest waits for the host's reliable release.
+	var seconds = ceili(net_prepare_remaining)
+	if seconds!=net_prepare_sent:
+		if not _net_send({"type":"prepare","remaining":net_prepare_remaining}): return
+		net_prepare_sent = seconds
+	if seconds==0:
+		net_preparing = false
+		remote_move = Vector2.ZERO
+		toast = "准备发球"
+		toast_time = 2.0
+
 func _physics_process(delta: float) -> void:
 	if screen == "help" or paused: return
+	if screen=="game" and net_preparing: return
 	var dt = delta
 	if test_mode: dt *= 3.0
 	toast_time = maxf(0, toast_time - dt)
@@ -890,6 +919,7 @@ func _landing() -> Vector2:
 	return Vector2(ball.x, ball.y) + Vector2(velocity.x, velocity.y) * (1.0 - exp(-DRAG * t)) / DRAG
 
 func _can_hit(i: int, shot: int = -1) -> bool:
+	if net_preparing: return false
 	if phase == "serve": return i == server and phase_time > .2
 	if phase != "rally" or last_hit == i: return false
 	var p = players[i]
@@ -1166,6 +1196,7 @@ func _match_won(i: int) -> bool:
 
 func _end_match(who: int, submit_result: bool = true) -> void:
 	phase = "end"
+	if mode=="online": net_status = ""
 	winner = who
 	_save_settings()
 	_clear_ui()
@@ -1328,6 +1359,7 @@ func _draw() -> void:
 		_draw_court()
 		_draw_world()
 		_draw_hud()
+		if net_preparing and phase!="end": _draw_preparation()
 		if phase == "point": _draw_point()
 		if paused: _draw_pause()
 		if phase == "end": _draw_result()
@@ -1576,10 +1608,19 @@ func _draw_hud() -> void:
 	_bar(stamina_at+Vector2(10,31),185,players[local_player].stamina,LIME)
 	_center(Vector2(area.get_center().x,area.end.y-18),"WASD 移动   J 放网 / 吊球   K 杀球 / 平抽   L 高远 / 挑球",13,WHITE)
 	_text(Vector2(area.end.x-490,area.end.y-40),"Space 跳跃   Shift 蹬步   H 轨迹   C 镜头   Esc 暂停",12,MUTED)
-	if phase=="serve":
+	if net_preparing:
+		_text(left+Vector2(0,116),"双方准备中",15,LIME)
+	elif phase=="serve":
 		_text(left+Vector2(0,116),"松开 J / L 发球" if server==local_player else "对手准备发球",15,LIME)
 	elif toast_time>0:
 		_text(left+Vector2(0,116),toast,14,LIME)
+
+func _draw_preparation() -> void:
+	var center = scene_rect().get_center()
+	_box(Rect2(center-Vector2(200,120),Vector2(400,240)),Color(.04,.10,.13,.94),LINE,20)
+	_center(center+Vector2(0,-67),"对手已就位 · 准备开赛",24)
+	_center(center+Vector2(0,26),str(maxi(1,ceili(net_prepare_remaining))),76,LIME)
+	_center(center+Vector2(0,85),"倒计时结束后可移动、发球",17,MUTED)
 
 func _bar(pos: Vector2, width: float, value: float, color: Color) -> void:
 	draw_style_box(_style(Color("0b1923"),Color("0b1923"),4),Rect2(pos,Vector2(width,7)))
@@ -1654,6 +1695,7 @@ func _show_lobby() -> void:
 		_show_login("登录账号后可进入在线对战，也可以继续单机游玩。")
 		return
 	screen = "lobby"
+	net_status = ""
 	_clear_ui()
 	if server_address.is_empty():
 		server_address = "ws://127.0.0.1:8766/ws"
@@ -1685,8 +1727,7 @@ func _show_lobby() -> void:
 	code_input.hide()
 	create_room_button = _button("创建房间",Rect2(950,510,350,54),func(): _connect_room("create"),true)
 	close_room_button = _button("关闭我的房间",Rect2(950,674,350,52),func(): _net_send({"type":"leave"}))
-	_button("首页积分榜",Rect2(1080,805,250,45),_build_menu)
-	_button("返回主场",Rect2(80,805,200,45),_build_menu)
+	lobby_return_button = _button("返回主场",Rect2(80,805,200,45),_request_lobby_return)
 	_update_room_list()
 	_request_lobby_data("list")
 
@@ -1694,12 +1735,59 @@ func _update_lobby_controls() -> void:
 	if screen != "lobby": return
 	var hosting = net_role == "host" and not room_code.is_empty()
 	var pending = net_action in ["create","join"]
+	lobby_return_button.disabled = pending
 	create_room_button.disabled = hosting or pending
 	create_room_button.text = "等待对手加入…" if hosting else ("正在创建…" if net_action == "create" else "创建房间")
 	nickname_input.editable = false
 	password_input.editable = not hosting and not pending
 	close_room_button.visible = hosting
 	join_room_button.disabled = hosting or pending or board_items.get_selected_items().is_empty()
+
+func _request_lobby_return() -> void:
+	if screen!="lobby" or net_action in ["create","join"]: return
+	if net_role!="host" or room_code.is_empty():
+		_build_menu()
+		return
+	if is_instance_valid(room_exit_panel): return
+	var leaving_code = room_code
+	var overlay = ColorRect.new()
+	overlay.color = Color(0.015,.04,.06,.78)
+	overlay.size = Vector2(1440,900)
+	ui.add_child(overlay)
+	room_exit_panel = overlay
+	var panel = Panel.new()
+	panel.position = Vector2(440,310)
+	panel.size = Vector2(560,280)
+	panel.add_theme_stylebox_override("panel",_style(PANEL,LINE,20))
+	overlay.add_child(panel)
+	var label = Label.new()
+	label.text = "返回主场后，当前房间会自动取消。\n确定要返回吗？"
+	label.position = Vector2(460,350)
+	label.size = Vector2(520,90)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font",FONT)
+	label.add_theme_font_size_override("font_size",23)
+	label.add_theme_color_override("font_color",WHITE)
+	overlay.add_child(label)
+	var cancel = _button("取消",Rect2(480,490,220,58),_cancel_lobby_return)
+	cancel.reparent(overlay,false)
+	var confirm = _button("取消房间并返回",Rect2(728,490,232,58),func():
+		# A peer may have joined while this dialog was visible. Never let a
+		# stale confirmation quit a newly started match or a different room.
+		if screen=="lobby" and net_role=="host" and room_code==leaving_code: _build_menu(),true)
+	confirm.reparent(overlay,false)
+	for key in ["focus_next","focus_previous","focus_neighbor_left","focus_neighbor_right","focus_neighbor_top","focus_neighbor_bottom"]:
+		cancel.set(key,cancel.get_path_to(confirm))
+		confirm.set(key,confirm.get_path_to(cancel))
+	cancel.grab_focus()
+
+func _cancel_lobby_return() -> void:
+	if is_instance_valid(room_exit_panel):
+		ui.remove_child(room_exit_panel)
+		room_exit_panel.queue_free()
+		room_exit_panel = null
+	if is_instance_valid(lobby_return_button): lobby_return_button.grab_focus()
 
 func _update_room_list() -> void:
 	if screen != "lobby": return
@@ -1796,10 +1884,8 @@ func _draw_lobby() -> void:
 	_text(Vector2(950,492),"密码留空，所有球友都可加入。",15,MUTED)
 	if net_role == "host" and not room_code.is_empty():
 		_center(Vector2(1125,606),"房间 " + room_code,27,LIME)
-		_center(Vector2(1125,641),"已显示在左侧列表，等待对手加入",15,MUTED)
 	else:
-		_center(Vector2(1125,610),"创建后自动出现在左侧列表",16,MUTED)
-		_center(Vector2(1125,641),"双方到齐，立即开赛 · 11 分制",15,MUTED)
+		_center(Vector2(1125,641),"双方到齐，倒计时 10 秒后开赛",15,MUTED)
 	_center(Vector2(705,783),net_status,15,LIME)
 
 func _connect_room(action: String) -> void:
@@ -1840,7 +1926,7 @@ func _disconnect() -> void:
 
 func _net_send(packet: Dictionary) -> bool:
 	if offline_mode: return false
-	if packet.type in ["state","input","effect","pause","ping","pong","appearance"]:
+	if packet.type in ["state","input","effect","pause","ping","pong","appearance","prepare"]:
 		packet.match = net_match_id
 		if packet.type=="state":
 			net_state_seq += 1
@@ -1856,6 +1942,11 @@ func _net_send(packet: Dictionary) -> bool:
 func _receive_peer_packet(packet: Dictionary) -> void:
 	if str(packet.get("match",""))!=net_match_id or net_match_closed: return
 	var kind = str(packet.get("type",""))
+	if kind=="prepare":
+		if net_role=="guest" and net_preparing:
+			net_prepare_remaining = clampf(float(packet.get("remaining",10)),0,10)
+			net_preparing = net_prepare_remaining>0
+		return
 	if kind=="appearance":
 		remote_avatar = _avatar_id(packet.get("avatar","male"))
 		players[1 if net_role=="host" else 0].avatar = remote_avatar
@@ -1910,6 +2001,8 @@ func _network_process(dt: float) -> void:
 		state.snapshot_bytes = peer.last_state_bytes
 		state.snapshot_version = peer.state_version
 		state.net_rtt_ms = net_rtt
+		state.preparing = net_preparing
+		state.prepare_seconds = net_prepare_remaining
 		state.fps = Engine.get_frames_per_second()
 		state.remote_lag_ms = maxf(0,match_time-remote_view.playhead)*1000 if net_role=="guest" else 0.0
 		state.remote_catchups = remote_view.catchups
@@ -1961,7 +2054,7 @@ func _network_process(dt: float) -> void:
 	if net_role == "guest" and not paused: remote_view.render(self,dt)
 	if net_role == "guest":
 		move_refresh += dt
-		var move = Vector2.ZERO if paused else Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+		var move = Vector2.ZERO if paused or net_preparing else Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
 		_send_movement(move)
 		return
 	var interval = 0.5 if paused else (1.0/30.0 if phase=="rally" else .1)
@@ -2034,6 +2127,7 @@ func _receive_packet(d: Dictionary) -> void:
 		"match_result":
 			if str(d.get("match","")) != net_match_id or net_match_closed: return
 			net_match_closed = true
+			net_preparing = false
 			result_reason = str(d.reason)
 			result_recorded = bool(d.recorded)
 			room_code = ""
@@ -2095,7 +2189,7 @@ func _receive_packet(d: Dictionary) -> void:
 			room_code = str(d.code)
 			net_match_id = str(d.match)
 			result_recorded = false
-			start_game("online")
+			start_game("online",true)
 			net_targets = [players[0].pos,players[1].pos]
 			net_ball = ball
 			_net_send({"type":"appearance","avatar":selected_avatar})
@@ -2117,8 +2211,8 @@ func _receive_packet(d: Dictionary) -> void:
 			room_code = ""
 			net_action = ""
 			paused = true
-			net_status = "对手离开了房间，请重新创建或加入。"
 			_show_lobby()
+			net_status = "对手离开了房间，请重新创建或加入。"
 		"pong": net_rtt = int(Time.get_ticks_msec()-int(d.stamp))
 		"pause":
 			if net_match_closed or phase == "end": return
@@ -2130,7 +2224,7 @@ func _receive_packet(d: Dictionary) -> void:
 				screen = "game"
 				_build_match_ui()
 		"input":
-			if net_role != "host" or phase == "end": return
+			if net_role != "host" or phase == "end" or net_preparing: return
 			var p = players[1]
 			match d.get("action",""):
 				"move":
@@ -2162,7 +2256,7 @@ func _receive_packet(d: Dictionary) -> void:
 		"rematch":
 			net_match_id = str(d.match)
 			result_recorded = false
-			start_game("online")
+			start_game("online",true)
 		"state":
 			if net_role != "guest" or net_match_closed: return
 			remote_view.push(d)

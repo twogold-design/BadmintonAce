@@ -61,7 +61,10 @@ func run():
        push_previous=held
       record(prefix+"elbow_behind",local_elbow.z,label)
       record(prefix+"left_clamped",left.x,label)
-      record(prefix+"forearm_twist",rad_to_deg(absf(hinge.signed_angle_to(target,forearm))),label)
+      # The authored rest palm faces down: a palm-up net grip can be
+      # near 180 degrees from that pose. Inspect the actual wrist seam,
+      # while retaining the legacy shaft-roll bound for other strokes.
+      record("net_rest_roll" if p.stroke in ["net","lift"] else prefix+"forearm_twist",rad_to_deg(absf(hinge.signed_angle_to(target,forearm))),label)
       record(prefix+"wrist_twist",rad_to_deg(absf(lower.y.signed_angle_to(target,forearm))),label)
       record(prefix+"wrist_bend",rad_to_deg(acos(clampf(palm.x.dot(forearm),-1,1))),label)
       if tick>0:

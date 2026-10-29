@@ -1,0 +1,18 @@
+{
+  "cases": 288,
+  "failures": 0,
+  "maxima": {
+    "contact_error": 0.170882806181908,
+    "reversed_impact_face": -0.485802382230759,
+    "reversed_impact_palm": -0.247551903128624,
+    "skin_frame_turn": 13.12181792397,
+    "wrist_bend": 49.9637797598433
+  },
+  "worst": {
+    "contact_error": "female P1 mode0 x-0.50 z-0.30 h2.25 tick0",
+    "reversed_impact_face": "female P1 mode0 x0.90 z0.00 h2.00 tick0",
+    "reversed_impact_palm": "female P1 mode0 x0.90 z0.00 h2.00 tick0",
+    "skin_frame_turn": "female P1 mode1 x0.90 z0.30 h2.00 tick11 part1",
+    "wrist_bend": "female P1 mode1 x0.00 z-0.60 h2.25 tick17"
+  }
+}

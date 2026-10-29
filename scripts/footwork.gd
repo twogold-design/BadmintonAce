@@ -65,6 +65,18 @@ static func backhand_turn(p: Dictionary, index: int, shuttle: Vector3) -> float:
 	var angle=clampf(facing+(1.05 if high else 0.0),1.9 if high else .65,2.6 if high else 1.45)
 	return -side*angle
 
+static func prepares_backhand(p: Dictionary, index: int, shuttle: Vector3) -> bool:
+	if not uses_backhand(p,index,shuttle):return false
+	var height=shuttle.z-float(p.jump)
+	if height<=1.9:return true
+	# Read a high clear while moving underneath it. Its current lateral
+	# offset is not the eventual hitting side: do not turn away from the
+	# net for a backhand while the shuttle is still above playing height.
+	if height>2.85:return false
+	var side=1.0 if index==0 else -1.0
+	var approach=clampf(p.vel.x*.20,-.55,.55)
+	return (shuttle.x-p.pos.x-approach)*side<-.65
+
 static func underarm_turn(p: Dictionary, index: int, shuttle: Vector3, backhand: bool) -> float:
 	var side=1.0 if index==0 else -1.0
 	var local=(Vector2(shuttle.x,shuttle.y)-p.pos)*side
@@ -115,7 +127,7 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	if rear_ready: overhead = true
 	if p.swing>0: overhead = false
 	var preparation_target = (0.8 if rear_ready and p.charge<0 and p.buffer<=0 and not is_ai else 1.0) if overhead else 0.0
-	var backhand_loading=(overhead and incoming and uses_backhand(p,index,shuttle)) or float(p.body_turn)*side<-.35
+	var backhand_loading=(overhead and incoming and prepares_backhand(p,index,shuttle)) or float(p.body_turn)*side<-.35
 	p.preparation = move_toward(p.preparation,preparation_target,dt*(3.5 if backhand_loading else 6.0))
 	var retreating = p.vel.y*side>.6
 	var lateral=absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4
@@ -140,7 +152,7 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		var heading=clampf(atan2(rescue_direction.x,-rescue_direction.y),-1.45,1.45)
 		target_turn=side*heading*.85
 		target_hip=target_turn*.65
-	var backhand_ready = rally and incoming and not (p.swing>0) and shuttle.y*side>.2 and uses_backhand(p,index,shuttle) and p.pos.distance_to(Vector2(shuttle.x,shuttle.y))<2.3
+	var backhand_ready = rally and incoming and not (p.swing>0) and shuttle.y*side>.2 and prepares_backhand(p,index,shuttle) and p.pos.distance_to(Vector2(shuttle.x,shuttle.y))<2.3
 	if backhand_ready:
 		target_turn=backhand_turn(p,index,shuttle)
 		target_hip=target_turn*.65

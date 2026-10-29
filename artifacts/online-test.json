@@ -1,14 +1,14 @@
 {
   "ok": true,
-  "room": "CE837A",
+  "room": "B8DCD2",
   "score": [
     1,
     0
   ],
   "stall_recovery": {
-    "lag_ms": 106.324319810582,
-    "catchups": 0,
-    "coalesced": 44
+    "lag_ms": 0,
+    "catchups": 1,
+    "coalesced": 50
   },
   "checks": [
     "male/female menu selection",

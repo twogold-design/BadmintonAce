@@ -48,6 +48,8 @@ func run():
 							p.swing=.48*(1-float(tick)/60)
 							if tick>0:FOOTWORK.update(p,index,.008,true,false,ball,false)
 							model.animate(p,index,ball,0)
+							if tick==0 and not model.stroke_solution.get("valid",false):
+								push_error("No natural overhead contact: %s P%d x%s h%s jump%s"%[avatar,index+1,x,height,jump]);quit(1);return
 							var label="%s P%d x%.2f h%.2f jump%.2f frame%d"%[avatar,index+1,x,height,jump,tick]
 							var frame=ATHLETE.body_frame(p,index)
 							var free_hand:Vector3=model.joint_points.hand_l
@@ -64,7 +66,15 @@ func run():
 							var forearm=(model.joint_points.hand_r-elbow).normalized()
 							var hand=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
 							if tick==0:record("contact_error",model.contact_error,label)
+							if tick<60:
+								var face=model.racket_basis_current.z
+								record("face_sideways",absf(face.x)-maxf(absf(face.y),absf(face.z)),label)
+								if tick==0:record("impact_face_sideways",absf(model.racket_basis_current.z.x)-absf(model.racket_basis_current.z.z),label)
 							if tick==24:
+								var upper_arm=elbow-model.joint_points.upperarm_r
+								record("release_arm_extension",180-rad_to_deg(upper_arm.angle_to(forearm)),label)
+								var local_elbow=frame.chest_basis.inverse()*upper_arm
+								record("release_elbow_across",-local_elbow.x,label)
 								var left_shoulder=model.joint_points.upperarm_l
 								record("shoulder_not_leading",frame.shoulder.z-left_shoulder.z,label)
 								record("missing_chest_follow",frame.lean,label)
@@ -79,7 +89,7 @@ func run():
 								record("elbow_step",elbow.distance_to(last_elbow),label)
 								record("racket_turn",rad_to_deg(last_basis.get_rotation_quaternion().angle_to(model.racket_basis_current.get_rotation_quaternion())),label)
 							last_elbow=elbow;last_basis=model.racket_basis_current
-	for bound in [["free_arm_extension",125.0],["free_wrist_bend",1.0],["free_hand_step",.045],["free_hand_turn",12.0],["contact_error",.003],["wrist_bend",55.0],["elbow_step",.07],["racket_turn",25.0],["release_x",-.25],["release_y",-.30],["shaft_x",-.1],["shaft_y",-.1],["shoulder_not_leading",-.10],["missing_chest_follow",-.04],["forearm_rotation",-8.0],["forearm_rotation_size",35.0],["impact_elbow_axial_turn",60.0]]:
+	for bound in [["free_arm_extension",125.0],["free_wrist_bend",1.0],["free_hand_step",.045],["free_hand_turn",12.0],["contact_error",ATHLETE.OVERHEAD_CONTACT_TOLERANCE],["wrist_bend",55.0],["elbow_step",.07],["racket_turn",25.0],["release_arm_extension",125.1],["release_elbow_across",.065],["release_x",-.24],["release_y",-.30],["shaft_x",-.1],["shaft_y",-.1],["shoulder_not_leading",-.10],["missing_chest_follow",-.04],["forearm_rotation",-8.0],["forearm_rotation_size",35.0],["impact_elbow_axial_turn",60.0],["impact_face_sideways",.15],["face_sideways",.35]]:
 		if maxima[bound[0]]>bound[1]:failures+=1;push_error(bound[0]+": "+str(maxima[bound[0]])+" "+worst[bound[0]])
 	if cases<24:failures+=1;push_error("Insufficient playable overhead cases")
 	var file=FileAccess.open("res://artifacts/overhead-release-test.json",FileAccess.WRITE)

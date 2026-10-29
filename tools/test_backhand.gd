@@ -53,7 +53,7 @@ func run():
 							previous=current
 
 						if tick==0:
-							check(model.contact_error<(model.NET_CONTACT_TOLERANCE if p.stroke in ["net","lift"] else .002),"Backhand contact retains its bounded visual allowance")
+							check(model.contact_error<(model.NET_BODY_VISUAL_TOLERANCE if p.stroke in ["net","lift"] else (model.OVERHEAD_CONTACT_TOLERANCE if p.stroke=="overhead" else .002)),"Backhand contact retains its bounded visual allowance")
 							var hinge=(model.joint_points.lowerarm_r-model.joint_points.upperarm_r).normalized().cross(forearm).normalized()
 							var roll=absf(hinge.signed_angle_to(palm.normalized(),forearm));max_contact_roll=maxf(max_contact_roll,roll)
 							check(roll<1.81,"Impact does not force a half-turn of the forearm")

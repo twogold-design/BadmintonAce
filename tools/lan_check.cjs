@@ -59,7 +59,7 @@ async function fill(p,x,y,value){await p.mouse.click(x,y);await p.waitForTimeout
   await guest.screenshot({path:path.join(root,'artifacts','forfeit-host.png')});
   await guest.mouse.click(590,670);
   await wait(guest,()=>window.badmintonState?.screen==='lobby');
-  await guest.mouse.click(1200,827);await wait(guest,()=>window.badmintonState?.screen==='menu'&&window.badmintonState?.leaders_loaded);
+  await guest.mouse.click(180,827);await wait(guest,()=>window.badmintonState?.screen==='menu'&&window.badmintonState?.leaders_loaded);
   await guest.screenshot({path:path.join(root,'artifacts','lan-ranking.png')});
   assert.equal(errors.length,0,errors.join('\n'));
   fs.writeFileSync(path.join(root,'artifacts','lan-test.json'),JSON.stringify({ok:true,address,entry:'local file',server:'standalone EXE',checks:['menu male/female selection','male host / female guest synchronized','live lobby room list','password rejected','password accepted','two clients join','ranking UI'],errors,limitation:'Both browsers are on this host; second physical PC and firewall still require validation.'},null,2));

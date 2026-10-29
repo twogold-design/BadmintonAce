@@ -1,0 +1,8 @@
+{
+  "cases": 384,
+  "failures": 0,
+  "max_racket_frame_turn_degrees": 9.14950284609564,
+  "minimum_elbow_flex_degrees": 44.9998953843069,
+  "torso_penetration": -0.201808120375575,
+  "wrist_bend_degrees": 16.91607725019
+}

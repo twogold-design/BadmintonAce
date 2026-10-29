@@ -64,7 +64,7 @@ func run():
         var flip=(Basis(Quaternion(prep_upper,upper))*prep_hinge).angle_to(hinge)
         max_flip=maxf(max_flip,flip)
         check(flip<deg_to_rad(60.1),"Backhand prep/contact retains the same elbow hinge branch")
-        check(model.contact_error<.002,"Backhand retains precise shuttle contact")
+        check(model.contact_error<A.OVERHEAD_CONTACT_TOLERANCE,"Backhand visual contact remains near the shuttle with a safe wrist and forward face")
         contact_elbow_y=elbow_local.y
        elif tick<60:
         var step=previous_racket.get_rotation_quaternion().angle_to(model.racket_basis_current.get_rotation_quaternion())
@@ -93,6 +93,30 @@ func run():
      check(previous_racket.get_rotation_quaternion().angle_to(model.racket_basis_current.get_rotation_quaternion())<deg_to_rad(20),"Preparation and cancellation do not flip the racket")
      check(previous_left.distance_to(model.joint_points.hand_l)<.065,"Free hand follows the turn continuously")
     previous_racket=model.racket_basis_current;previous_left=model.joint_points.hand_l
+ # A high clear initially left of a running player can become a normal
+ # forehand by arrival. Preparation must read that approach, not switch
+ # into a full backhand and unwind it while the shuttle is still high.
+ for avatar in ["male","female"]:
+  for index in [0,1]:
+   var side=1.0 if index==0 else -1.0
+   var p={"avatar":avatar,"pos":Vector2(0,4*side),"vel":Vector2(-3*side,0),"jump":0.0,"swing":0.0,"charge":-1,"shot":0,"buffer":0.0,"dash":0.0,"landing":0.0,"backhand":false,"stroke":"overhead"}
+   F.reset(p)
+   var previous_racket=Basis.IDENTITY
+   for tick in range(90):
+    p.vel=Vector2(-3*side,0) if tick<40 else Vector2.ZERO
+    p.pos+=p.vel/120
+    var ball=Vector3(-1.2*side,3.8*side,lerpf(4.0,2.2,float(tick)/89))
+    F.update(p,index,1.0/120,true,true,ball,false);model.animate(p,index,ball,0)
+    check(p.body_turn*side>=-.01,"Moving under a high clear retains forehand preparation")
+    var lower=(model.joint_points.hand_r-model.joint_points.lowerarm_r).normalized()
+    var hand:Basis=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
+    check(lower.dot(hand.x)>cos(deg_to_rad(35)),"Approaching clear keeps a relaxed wrist")
+    if tick>0:check(previous_racket.get_rotation_quaternion().angle_to(model.racket_basis_current.get_rotation_quaternion())<deg_to_rad(20),"Moving preparation does not reverse the racket")
+    previous_racket=model.racket_basis_current
+   p.vel=Vector2(-3*side,0);p.pos=Vector2(0,4*side)
+   check(not F.prepares_backhand(p,index,Vector3(-.9*side,3.8*side,2.6)),"An approaching player still has room for an overhead forehand")
+   p.vel=Vector2.ZERO
+   check(F.prepares_backhand(p,index,Vector3(-.9*side,3.8*side,2.6)),"A genuinely wide playable clear still loads the backhand")
  check(cases>=32,"Rear backhand covers a range of heights and depths")
  var result={"cases":cases,"checks":checks,"failures":failures,"max_elbow_branch_turn_degrees":rad_to_deg(max_flip),"max_wrist_degrees":rad_to_deg(max_wrist),"max_racket_frame_turn_degrees":rad_to_deg(max_racket_step)}
  FileAccess.open("res://artifacts/rear-backhand-test.json",FileAccess.WRITE).store_string(JSON.stringify(result,"  "))

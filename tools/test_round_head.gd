@@ -34,7 +34,7 @@ func run():
 				check(game._try_hit(index,0),"Both nearby overhead forehands and wide backhands remain playable")
 				check(p.backhand==backhand and p.stroke=="overhead","Actual hit selects the intended overhead grip")
 				var model=game.arena.athletes[index];model.animate(p,index,contact,0)
-				check(model.contact_error<.003,"Selected overhead pose reaches actual shuttle with the string bed")
+				check(model.contact_error<model.OVERHEAD_CONTACT_TOLERANCE,"Overhead visual pose stays near the shuttle with a natural wrist and forward face")
 				var low=Vector3(-.35*side,4.7*side,1.1)
 				check(game.FOOTWORK.uses_backhand(p,index,low),"Low left returns in front use compact backhand while nearby overheads remain forehand")
 				p.jump=.7

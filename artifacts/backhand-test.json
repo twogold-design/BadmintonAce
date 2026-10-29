@@ -3,7 +3,7 @@
   "coverage": "male/female, P1/P2, net/lift/drive/overhead, contact through follow-through, high backhand hand facing, palm grip position, distributed forearm skinning",
   "failures": 0,
   "high_backhand_contacts": 4,
-  "max_contact_forearm_roll_degrees": 79.9635722738997,
-  "max_wrist_twist_degrees": 0.0000170754696681439,
-  "min_hand_forearm_dot": 0.642815709114075
+  "max_contact_forearm_roll_degrees": 97.4616836443936,
+  "max_wrist_twist_degrees": 0.0000169898786516663,
+  "min_hand_forearm_dot": 0.657476842403412
 }

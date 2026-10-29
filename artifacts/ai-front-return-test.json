@@ -1,0 +1,10 @@
+{
+  "actual_player_net_shots": 16,
+  "ai_returns": 16,
+  "failures": 0,
+  "kinds": {
+    "lift": 6,
+    "net": 10
+  },
+  "max_turn_per_30fps_frame": 20.5834836959598
+}

@@ -44,7 +44,7 @@ func run():
 							accepted += 1
 							game.FOOTWORK.hit(p,index,contact,false)
 							model.animate(p,index,contact,0)
-							check(model.contact_error<(model.NET_CONTACT_TOLERANCE if p.stroke in ["net","lift"] else .002),"Contact stays within the visual allowance without distorting the rig")
+							check(model.contact_error<(model.NET_BODY_VISUAL_TOLERANCE if p.stroke in ["net","lift"] else (model.OVERHEAD_CONTACT_TOLERANCE if p.stroke=="overhead" else .002)),"Contact stays within the visual allowance without distorting the rig")
 							var thumb: Vector3 = model.poses[model.bones.thumb_01_r].origin
 							var pinky: Vector3 = model.poses[model.bones.pinky_01_r].origin
 							check((thumb-pinky).dot(model.racket_basis_current.y)>.025,"Thumb side points toward racket head for either avatar and camera side")

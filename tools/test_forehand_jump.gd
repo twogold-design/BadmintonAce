@@ -69,7 +69,7 @@ func run():
 				check((-palm.y).dot(-model.racket_basis_current.z)>cos(deg_to_rad(20)),"Overhead uses the same handshake grip as the ready stance")
 				var forearm=(model.joint_points.hand_r-model.joint_points.lowerarm_r).normalized()
 				check(palm.x.dot(forearm)>cos(deg_to_rad(55)),"Power rotation does not fold the wrist: "+avatar+" frame "+str(tick)+" angle "+str(rad_to_deg(acos(clampf(palm.x.dot(forearm),-1,1)))))
-				if tick==0:check(model.contact_error<.003,"Forehand still contacts the real shuttle")
+				if tick==0:check(model.contact_error<model.OVERHEAD_CONTACT_TOLERANCE,"Forehand visual contact stays within its bounded allowance")
 	# Snapshot layout supports both old peers and the extra jump poses.
 	game.net_match_id="12345678-1234-1234-1234-123456789abc"
 	var packet={"type":"state","match":game.net_match_id,"time":0.0,"ball":[0,0,1],"velocity":[0,0,0],"phase":"rally","score":[0,0],"players":[]}

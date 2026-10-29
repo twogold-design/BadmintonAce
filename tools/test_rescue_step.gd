@@ -36,7 +36,7 @@ func run():
 					check(peak>.2 and p.pos.distance_to(initial)<.82,"Save uses a visible bounded physical step")
 					check(game.total_hits==11 and p.buffer==0,"One input produces exactly one return")
 					game.arena.sync(game)
-					check(game.arena.athletes[index].contact_error<game.arena.athletes[index].NET_CONTACT_TOLERANCE,"Rescue pose stays within the bounded visual contact allowance")
+					check(game.arena.athletes[index].contact_error<game.arena.athletes[index].NET_BODY_VISUAL_TOLERANCE,"Rescue pose stays within the bounded visual contact allowance")
 					var target=game.FOOTWORK.snapshot(p);var copy=p.duplicate(true);game.FOOTWORK.reset(copy);game.FOOTWORK.receive(copy,target)
 					for tick in range(60):game.FOOTWORK.interpolate(copy,1.0/60)
 					check(absf(copy.rescue_weight-p.rescue_weight)<.002 and absf(copy.rescue_x-p.rescue_x)<.002,"P2 receives lunge weight and direction")
