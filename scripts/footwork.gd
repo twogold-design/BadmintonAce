@@ -19,12 +19,39 @@ static func reset(p: Dictionary) -> void:
 	p.service_long = 0.0
 	p.heel_l=0.0;p.heel_r=0.0;p.bounce=0.0
 	p.jump_load=0.0;p.jump_crouch=0.0;p.jump_drive=0.0
+	p.jump_settle=0.0
 	p.gait_active = false
 	p.gait_blend = 0.0
 	p.gait_support = [true,false]
 	p.gait_from = [p.foot_l,p.foot_r]
+	p.gait_to = [p.foot_l,p.foot_r]
 	p.erase("motion_target")
 	p.erase("contact")
+
+static func queue_jump(p: Dictionary) -> void:
+	# Finish the step already in progress before compressing the supporting
+	# legs. Do not erase an airborne foot's height on the Space input frame.
+	var feet=[p.foot_l,p.foot_r]
+	var lifts=[float(p.lift_l),float(p.lift_r)]
+	if maxf(lifts[0],lifts[1])<.002 and p.vel.length()<.6:
+		p.jump_load=JUMP_LOAD_TIME
+		return
+	p.jump_brake=maxf(64.0,p.vel.length_squared()/.28)
+	var center:Vector2=p.pos+p.vel*p.vel.length()/(2*float(p.jump_brake))
+	var targets=feet.duplicate()
+	var duration=clampf(p.vel.length()/float(p.jump_brake)+.015,.08,.22)
+	for leg in range(2):
+		if lifts[leg]<.002:continue
+		var landing:Vector2=feet[leg]
+		if p.gait_active:landing=p.gait_to[leg]
+		elif p.step_leg==leg:landing=p.step_to
+		landing=center+(landing-center).limit_length(.50)
+		targets[leg]=landing
+		duration=maxf(duration,clampf(feet[leg].distance_to(landing)/3.0+lifts[leg]*.25,.10,.22))
+	p.jump_settle=duration;p.jump_plant_duration=duration
+	p.jump_plant_from=feet;p.jump_plant_to=targets;p.jump_plant_lifts=lifts
+	p.jump_plant_turn=p.body_turn;p.jump_plant_hip=p.hip_turn
+	p.jump_load=0.0;p.jump_crouch=0.0;p.jump_drive=0.0
 
 static func service_targets(p: Dictionary, index: int, receiving: bool) -> Array:
 	# Anatomical left/right, mirrored into world slots for the far player.
@@ -112,7 +139,8 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	if rear_ready: overhead = true
 	if p.swing>0: overhead = false
 	var preparation_target = (0.8 if rear_ready and p.charge<0 and p.buffer<=0 and not is_ai else 1.0) if overhead else 0.0
-	p.preparation = move_toward(p.preparation,preparation_target,dt*6)
+	var backhand_loading=(overhead and incoming and uses_backhand(p,index,shuttle)) or float(p.body_turn)*side<-.35
+	p.preparation = move_toward(p.preparation,preparation_target,dt*(3.5 if backhand_loading else 6.0))
 	var retreating = p.vel.y*side>.6
 	var lateral=absf(p.vel.x)>absf(p.vel.y)*1.25 and speed>.4
 	var lateral_chasse=lateral and speed<=5.5 and p.dash<=0
@@ -169,6 +197,8 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		# Transfer onto the front/left leg, hold through the follow-through,
 		# then ease back to centre instead of rocking straight back again.
 		shift = smoothstep(0,.40,t)*(1-smoothstep(.65,1,t))
+	if float(p.get("jump_settle",0))>0:
+		target_turn=p.jump_plant_turn;target_hip=p.jump_plant_hip
 	p.body_turn = move_toward(p.body_turn,target_turn,dt*(12 if rescue_turn or backhand_ready else 7.5))
 	p.hip_turn = move_toward(p.hip_turn,target_hip,dt*(3.0 if speed<.6 and not striking else 9.0))
 	p.weight_shift = move_toward(p.weight_shift,shift,dt*10)
@@ -209,13 +239,26 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 	var old_lifts=[p.lift_l,p.lift_r]
 	p.lift_l = 0.0
 	p.lift_r = 0.0
+	if float(p.get("jump_settle",0))>0:
+		p.jump_settle=maxf(0,float(p.jump_settle)-dt)
+		var progress=1-float(p.jump_settle)/float(p.jump_plant_duration)
+		var blend=smoothstep(0,1,progress)
+		p.foot_l=p.jump_plant_from[0].lerp(p.jump_plant_to[0],blend)
+		p.foot_r=p.jump_plant_from[1].lerp(p.jump_plant_to[1],blend)
+		p.lift_l=float(p.jump_plant_lifts[0])*(1-blend)
+		p.lift_r=float(p.jump_plant_lifts[1])*(1-blend)
+		p.footwork="adjust"
+		if p.jump_settle<=0:
+			p.jump_load=JUMP_LOAD_TIME
+			p.step_leg=-1;p.gait_active=false
+		return
 	if float(p.get("jump_load",0))>0:
 		p.step_leg=-1;p.gait_active=false
 		p.heel_l=maxf(p.heel_l,float(p.jump_drive)*.25)
 		p.heel_r=maxf(p.heel_r,float(p.jump_drive)*.25)
 		p.footwork="jump_load"
 		return
-	if p.jump>.08:
+	if p.jump>0:
 		# Tuck the lower legs slightly behind the hips; do not carry a ground
 		# lunge forward into the air and make the torso appear to fall backwards.
 		var scissor=lerpf(.12,-.10,float(p.weight_shift))
@@ -224,8 +267,8 @@ static func update(p: Dictionary, index: int, dt: float, rally: bool, incoming: 
 		var air_left=p.pos-across*.19+Vector2(0,left_depth if index==0 else right_depth)
 		var air_right=p.pos+across*.19+Vector2(0,right_depth if index==0 else left_depth)
 		var air_blend=1-exp(-20*dt)
-		p.foot_l=p.foot_l.lerp(air_left,air_blend)
-		p.foot_r=p.foot_r.lerp(air_right,air_blend)
+		p.foot_l=p.foot_l.move_toward(p.foot_l.lerp(air_left,air_blend),dt*4.8)
+		p.foot_r=p.foot_r.move_toward(p.foot_r.lerp(air_right,air_blend),dt*4.8)
 		var tuck=.10*smoothstep(.08,.55,float(p.jump))
 		p.lift_l=move_toward(float(old_lifts[0]),tuck,dt*1.2)
 		p.lift_r=move_toward(float(old_lifts[1]),tuck,dt*1.2)
@@ -328,6 +371,7 @@ static func moving_feet(p: Dictionary, dt: float, targets: Array, across: Vector
 			var t=(phase-duty)/(1.0-duty)
 			var remaining=(1.0-phase)*period
 			var landing: Vector2=targets[leg]+direction*half_stride+p.vel*remaining
+			p.gait_to[leg]=landing
 			# Bring the swing leg through before the body outruns the support
 			# base; reserve the final swing interval for controlled placement.
 			feet[leg]=p.gait_from[leg].lerp(landing,smoothstep(0,.90,t))

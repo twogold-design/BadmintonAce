@@ -562,9 +562,11 @@ func _begin_serve() -> void:
 	rally = 0
 	ball_trail.clear()
 	var parity = 1.0 if score[server] % 2 == 0 else -1.0
-	var sx = parity * (1 if server == 0 else -1) * 1.28
-	players[server].pos = Vector2(sx, 3.4 if server == 0 else -3.4)
-	players[1-server].pos = Vector2(-sx, -3.8 if server == 0 else 3.8)
+	var court_side = parity * (1 if server == 0 else -1)
+	# Singles: serve near the centre line, receive near the middle of the
+	# diagonal service court. Keep room for both shoes inside the service box.
+	players[server].pos = Vector2(court_side*.45, 3.4 if server == 0 else -3.4)
+	players[1-server].pos = Vector2(-court_side*1.28, -3.8 if server == 0 else 3.8)
 	for p in players:
 		p.stamina = minf(100, p.stamina + 26)
 		p.charge = -1
@@ -661,8 +663,8 @@ func _notification(what: int) -> void:
 
 func _jump(i: int) -> void:
 	var p = players[i]
-	if p.jump <= 0 and p.jump_v<=0 and float(p.get("jump_load",0))<=0 and p.stamina >= 12 and phase == "rally":
-		p.jump_load = FOOTWORK.JUMP_LOAD_TIME
+	if p.jump <= 0 and p.jump_v<=0 and float(p.get("jump_load",0))<=0 and float(p.get("jump_settle",0))<=0 and p.stamina >= 12 and phase == "rally":
+		FOOTWORK.queue_jump(p)
 		p.stamina -= 12
 
 func _dash(i: int) -> void:
@@ -721,6 +723,7 @@ func _physics_process(delta: float) -> void:
 		_step_ball(dt)
 		for i in range(2):
 			if players[i].buffer > 0:
+				if float(players[i].get("jump_settle",0))>0:continue
 				players[i].buffer = maxf(0,players[i].buffer-dt)
 				if not _try_hit(i, players[i].shot) and players[i].buffer <= 0:
 					players[i].swing = .16
@@ -746,6 +749,7 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 	p.landing = maxf(0,p.landing-dt)
 	p.stamina = minf(100, p.stamina + dt * (14 if p.vel.length() < 1 else 8))
 	p.jump_drive=move_toward(float(p.jump_drive),0,dt*6)
+	if phase!="rally":p.jump_settle=0.0
 	if float(p.jump_load)>0:
 		if phase!="rally":
 			p.jump_load=0.0;p.jump_crouch=0.0;p.jump_drive=0.0
@@ -804,7 +808,12 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 	var desired: Vector2 = movement.limit_length() * speed
 	if p.rescue_time>0: desired = movement.limit_length()*minf(6.2,float(p.rescue_budget)/maxf(dt,.001))
 	if p.dash > 0: desired = p.aim * 10.5
-	p.vel = p.vel.move_toward(desired, dt * 32)
+	if float(p.get("jump_settle",0))>0 or float(p.jump_load)>0:
+		# Brake over the planted foot; starting another running step during
+		# loading would pull the torso away from its support again.
+		desired=Vector2.ZERO
+	var braking=float(p.get("jump_brake",64.0)) if float(p.get("jump_settle",0))>0 else 32.0
+	p.vel = p.vel.move_toward(desired, dt * braking)
 	if p.rescue_time>0:p.vel=p.vel.limit_length(float(p.rescue_budget)/maxf(dt,.001))
 	p.pos += p.vel * dt
 	if p.rescue_time>0:
@@ -899,6 +908,7 @@ func _can_hit(i: int, shot: int = -1) -> bool:
 	return p.pos.distance_to(Vector2(ball.x, ball.y)) <= reach and ball.z >= .12 and ball.z <= 2.85 + p.jump and ARENA_3D.ATHLETE_3D.can_reach(p,i,ball,stroke)
 
 func _try_hit(i: int, shot: int) -> bool:
+	if float(players[i].get("jump_settle",0))>0:return false
 	if not _can_hit(i,shot): return false
 	var p = players[i]
 	var serving = phase == "serve"
@@ -1553,7 +1563,6 @@ func _draw_menu() -> void:
 
 
 	_text(Vector2(84,829), "键盘操作  ·  AI / 在线对战  ·  11 分一局",15,MUTED)
-	if save_best > 0: _text(Vector2(1144,128),"最佳回合  " + str(save_best) + " 拍",13,LIME)
 
 func _draw_hud() -> void:
 	var area=scene_rect()

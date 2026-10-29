@@ -1,0 +1,8 @@
+{
+  "cases": 40,
+  "checks": 25117,
+  "failures": 0,
+  "max_elbow_branch_turn_degrees": 41.3036702130629,
+  "max_racket_frame_turn_degrees": 5.53774790497756,
+  "max_wrist_degrees": 49.9979068000313
+}

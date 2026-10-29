@@ -1,0 +1,166 @@
+{
+  "cases": [
+    {
+      "avatar": "male",
+      "index": 0,
+      "max_foot_step": 0.0400000363588333,
+      "max_height_step": 0.00664510247937091,
+      "min_pelvis": 0.804236590862274,
+      "speed": 4.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "male",
+      "index": 0,
+      "max_foot_step": 0.0399999134242535,
+      "max_height_step": 0.00787679032788236,
+      "min_pelvis": 0.804236590862274,
+      "speed": 4.5,
+      "support_time": 0.191666666666667,
+      "takeoff": 0.333333333333333
+    },
+    {
+      "avatar": "male",
+      "index": 0,
+      "max_foot_step": 0.039999783039093,
+      "max_height_step": 0.0091140041035437,
+      "min_pelvis": 0.799607157707214,
+      "speed": 10.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "male",
+      "index": 0,
+      "max_foot_step": 0.0400001294910908,
+      "max_height_step": 0.0110677172051745,
+      "min_pelvis": 0.804236590862274,
+      "speed": 10.5,
+      "support_time": 0.183333333333333,
+      "takeoff": 0.325
+    },
+    {
+      "avatar": "male",
+      "index": 1,
+      "max_foot_step": 0.0400000996887684,
+      "max_height_step": 0.00940683823396843,
+      "min_pelvis": 0.804236590862274,
+      "speed": 4.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "male",
+      "index": 1,
+      "max_foot_step": 0.0399999134242535,
+      "max_height_step": 0.00787679032788236,
+      "min_pelvis": 0.804236590862274,
+      "speed": 4.5,
+      "support_time": 0.191666666666667,
+      "takeoff": 0.333333333333333
+    },
+    {
+      "avatar": "male",
+      "index": 1,
+      "max_foot_step": 0.0400000177323818,
+      "max_height_step": 0.0091140041035437,
+      "min_pelvis": 0.799585282802582,
+      "speed": 10.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "male",
+      "index": 1,
+      "max_foot_step": 0.0400001294910908,
+      "max_height_step": 0.0110677172051745,
+      "min_pelvis": 0.804236590862274,
+      "speed": 10.5,
+      "support_time": 0.183333333333333,
+      "takeoff": 0.325
+    },
+    {
+      "avatar": "female",
+      "index": 0,
+      "max_foot_step": 0.0400000363588333,
+      "max_height_step": 0.00664510247937091,
+      "min_pelvis": 0.786936461925507,
+      "speed": 4.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "female",
+      "index": 0,
+      "max_foot_step": 0.0399999134242535,
+      "max_height_step": 0.00787679032788236,
+      "min_pelvis": 0.786936461925507,
+      "speed": 4.5,
+      "support_time": 0.191666666666667,
+      "takeoff": 0.333333333333333
+    },
+    {
+      "avatar": "female",
+      "index": 0,
+      "max_foot_step": 0.039999783039093,
+      "max_height_step": 0.0091140041035437,
+      "min_pelvis": 0.772506713867188,
+      "speed": 10.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "female",
+      "index": 0,
+      "max_foot_step": 0.0400001294910908,
+      "max_height_step": 0.0110677172051745,
+      "min_pelvis": 0.786936461925507,
+      "speed": 10.5,
+      "support_time": 0.183333333333333,
+      "takeoff": 0.325
+    },
+    {
+      "avatar": "female",
+      "index": 1,
+      "max_foot_step": 0.0400000996887684,
+      "max_height_step": 0.00940683823396843,
+      "min_pelvis": 0.786936461925507,
+      "speed": 4.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "female",
+      "index": 1,
+      "max_foot_step": 0.0399999134242535,
+      "max_height_step": 0.00787679032788236,
+      "min_pelvis": 0.786936461925507,
+      "speed": 4.5,
+      "support_time": 0.191666666666667,
+      "takeoff": 0.333333333333333
+    },
+    {
+      "avatar": "female",
+      "index": 1,
+      "max_foot_step": 0.0400000177323818,
+      "max_height_step": 0.0091140041035437,
+      "min_pelvis": 0.772518873214722,
+      "speed": 10.5,
+      "support_time": 0.225,
+      "takeoff": 0.366666666666667
+    },
+    {
+      "avatar": "female",
+      "index": 1,
+      "max_foot_step": 0.0400001294910908,
+      "max_height_step": 0.0110677172051745,
+      "min_pelvis": 0.786936461925507,
+      "speed": 10.5,
+      "support_time": 0.183333333333333,
+      "takeoff": 0.325
+    }
+  ],
+  "checks": 1737,
+  "failures": 0
+}

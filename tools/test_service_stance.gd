@@ -28,11 +28,11 @@ func run():
 					var forearm=(model.joint_points.hand_r-model.joint_points.lowerarm_r).normalized()
 					var palm=model.poses[model.bones.hand_r].basis*model.rests[model.bones.hand_r].basis.inverse()
 					var lower=model.poses[model.bones.ace_forearm_r_4].basis*model.rests[model.bones.ace_forearm_r_4].basis.inverse()
-					check(palm.x.dot(forearm)>cos(deg_to_rad(35)),"Waiting wrist follows forearm")
+					check(palm.x.dot(forearm)>cos(deg_to_rad(20)),"Waiting wrist stays relaxed along forearm")
 					check(absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))<deg_to_rad(15),"Waiting wrist does not carry residual forearm twist")
 					var face=frame.chest_basis.inverse()*model.racket_basis_current.z
 					var shaft=frame.chest_basis.inverse()*model.racket_basis_current.y
-					check(shaft.y>.75 and shaft.y<.93 and shaft.z<-.10 and shaft.x<-.30,"Ready racket is raised with a modest inward and forward tilt")
+					check(shaft.y>.75 and shaft.y<.93 and absf(shaft.z)<.12 and shaft.x<-.30,"Ready racket stays raised and inward without forcing wrist downward")
 					check(face.x>.30 and face.z>.10 and face.z<.90,"Waiting string bed closes inward, not outward")
 					check((frame.chest_basis.inverse()*forearm).y>.48,"Waiting forearm is raised above the previous low carry")
 					check((-palm.y).dot(-model.racket_basis_current.z)>cos(deg_to_rad(20)),"V grip keeps the palm near the string-bed plane, not across it")
@@ -58,6 +58,15 @@ func run():
 						var model=game.arena.athletes[index]
 						model.animate(p,index,game.ball,0,serving)
 						var frame=game.ARENA_3D.ATHLETE_3D.body_frame(p,index)
+						var court_sign=(1.0 if parity==0 else -1.0)*(1.0 if server==0 else -1.0)*(1.0 if serving else -1.0)
+						check(p.pos.x*court_sign>0,"Server and receiver occupy the correct diagonal courts for score parity")
+						if serving:
+							check(absf(p.pos.x)>.32 and absf(p.pos.x)<.60,"Singles server stands near the centre line")
+							for foot in ["l","r"]:
+								for bone in ["foot_"+foot,"ball_"+foot,"ball_leaf_"+foot]:
+									var point:Vector3=model.position+frame.base*model.poses[model.bones[bone]].origin
+									check(point.x*court_sign>.10,"Server shoe clears the centre line including toe and heel width")
+									check(absf(point.z)>2.08 and absf(point.z)<6.6,"Server shoes stay behind the short service line and inside the baseline")
 						for limb in ["l","r"]:
 							var upper=frame.chest_basis.inverse()*(model.joint_points["lowerarm_"+limb]-model.joint_points["upperarm_"+limb])
 							check(upper.x*(-1 if limb=="l" else 1)>.055,"Ready elbows retain space away from the ribs")
@@ -75,6 +84,7 @@ func run():
 						check(absf(lower.y.signed_angle_to((palm.y-forearm*palm.y.dot(forearm)).normalized(),forearm))<deg_to_rad(15),"Service preparation carries twist through forearm")
 						if not serving:
 							check(head.z<-.25 and head.y>1.4,"Receiver presents raised racket in front of body")
+							check(palm.x.dot(forearm)>cos(deg_to_rad(20)),"Receiver wrist stays relaxed along forearm")
 							check((frame.chest_basis.inverse()*forearm).y>.48,"Receiver forearm slopes upward: "+avatar+" "+str(forearm.y))
 							var face=frame.chest_basis.inverse()*model.racket_basis_current.z
 							# Check the signed direction in the player's frame: an absolute

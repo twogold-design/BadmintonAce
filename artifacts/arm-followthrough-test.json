@@ -4,12 +4,12 @@
   "frames_per_case": 62,
   "maxima": {
     "return_elbow_behind": 0.0184268653392792,
-    "return_elbow_step": 0.0500923842191696,
-    "return_forearm_twist": 132.592987036597,
-    "return_hand_step": 15.1027110946044,
-    "return_left_clamped": -0.110842011868954,
-    "return_wrist_bend": 49.3032827584553,
-    "return_wrist_twist": 0.000016199212095627,
+    "return_elbow_step": 0.0400863327085972,
+    "return_forearm_twist": 97.8625132958358,
+    "return_hand_step": 10.5421929320132,
+    "return_left_clamped": -0.15991997718811,
+    "return_wrist_bend": 49.997902748075,
+    "return_wrist_twist": 0.0000146888742564815,
     "serve_elbow_behind": 0.0350000113248825,
     "serve_elbow_step": 0.0253372620791197,
     "serve_forearm_twist": 88.8261525333414,
@@ -18,18 +18,18 @@
     "serve_push_backwards": 0.0,
     "serve_push_face_turn": 5.0697954232407,
     "serve_push_sideways": 0.00521701574325562,
-    "serve_wrist_bend": 30.6137162490458,
-    "serve_wrist_twist": 0.0000148860511409593
+    "serve_wrist_bend": 29.2043904886449,
+    "serve_wrist_twist": 0.0000158351408712379
   },
   "motion_cases": 40,
   "worst_cases": {
     "return_elbow_behind": "male P1 net false tick 0",
-    "return_elbow_step": "male P1 overhead true tick 20",
-    "return_forearm_twist": "female P2 overhead true tick 13",
-    "return_hand_step": "male P2 overhead true tick 20",
-    "return_left_clamped": "female P1 overhead false tick 48",
-    "return_wrist_bend": "female P1 overhead true tick 0",
-    "return_wrist_twist": "female P2 overhead false tick 12",
+    "return_elbow_step": "male P2 overhead false tick 11",
+    "return_forearm_twist": "female P1 overhead false tick 0",
+    "return_hand_step": "male P1 overhead false tick 12",
+    "return_left_clamped": "female P1 drive true tick 56",
+    "return_wrist_bend": "female P2 overhead true tick 20",
+    "return_wrist_twist": "female P2 lift true tick 56",
     "serve_elbow_behind": "male P2 serve true tick 0",
     "serve_elbow_step": "male P1 serve true tick 2",
     "serve_forearm_twist": "female P1 serve true tick 17",
@@ -38,7 +38,7 @@
     "serve_push_backwards": "male P1 serve false tick 1",
     "serve_push_face_turn": "male P2 serve true tick 13",
     "serve_push_sideways": "female P1 serve true tick 13",
-    "serve_wrist_bend": "male P1 serve false tick 61",
-    "serve_wrist_twist": "female P1 serve false tick 53"
+    "serve_wrist_bend": "male P1 serve true tick 1",
+    "serve_wrist_twist": "female P1 serve false tick 57"
   }
 }
