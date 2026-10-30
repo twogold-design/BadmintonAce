@@ -11,7 +11,7 @@ const isExe = require('node:sea').isSea();
 const home = isExe ? path.dirname(process.execPath) : path.join(__dirname,'..');
 
 const port = Number(process.env.PORT || 8766);
-const lanOnly = process.env.LAN_ONLY !== '0';
+const lanOnly = process.env.LAN_ONLY === '1';
 const root = path.resolve(process.env.WEB_ROOT || path.join(home, 'build', 'web'));
 const records = new Records(path.join(process.env.DATA_DIR || path.join(home,'data'),'rankings.sqlite'));
 const gm = new (require('./gm').GM)(records,process.env.DATA_DIR || path.join(home,'data'),invalidateManagedAccounts);
@@ -286,7 +286,7 @@ server.listen(port, '0.0.0.0', () => {
   console.log('双击 GM管理.cmd 自动验证；或使用数据目录的 gm-key.txt。');
   console.log('谁是羽毛球高手 · 房间与战绩服务器（关闭窗口即停止服务）');
   console.log(`排行榜数据: ${path.join(process.env.DATA_DIR || path.join(home,'data'),'rankings.sqlite')}`);
-  console.log(`Access: ${lanOnly ? 'LAN only (direct private-address clients)' : 'Public deployment enabled'}`);
+  console.log(`Access: ${lanOnly ? 'LAN only (direct private-address clients)' : 'All reachable clients (no source subnet restriction)'}`);
   for (const entries of Object.values(require('node:os').networkInterfaces()))
     for (const a of entries || []) if (a.family === 'IPv4' && !a.internal) console.log(`LAN connection: ws://${a.address}:${port}/ws (open the extracted index.html locally)`);
 });

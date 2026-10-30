@@ -100,6 +100,6 @@ Windows 工具路径可用 `GODOT_BIN`、`NODE_BIN`、`ACE_BROWSER` 环境变量
 - `dist/manifest.json`：发布文件体积与 SHA-256；`artifacts/验证记录.md`：实际验证及限制。
 - `local-data.js` 仅在本地 file: 模式读取，网站托管不重复下载。
 
-当前仅提供局域网服务，没有部署公网入口。普通内网 HTTP 游戏页不满足安全上下文要求，其他电脑应使用完整本地游戏包。未来如需公网服务，见 `docs/部署与邀请.md`；需要明确配置 `LAN_ONLY=0` 和 HTTPS/WSS，不能直接把内网地址发给异地玩家。
+服务器默认接受所有可访问主机 TCP 8766 端口的玩家，不要求同一子网。园区不同网段可以接入账号、房间和排行榜；开赛还需要两台玩家电脑之间允许 WebRTC 直连通信。更新旧主机后，重新以管理员身份运行 `允许局域网联机.cmd`，取消原防火墙规则的本地子网限制。普通内网 HTTP 游戏页不满足安全上下文要求，其他电脑应使用完整本地游戏包。目前没有部署公网入口，也没有 TURN 转发；未来公网部署见 `docs/部署与邀请.md`。
 
 角色基础网格、绑定与部分发型来自 Quaternius 的 CC0 Universal Base Characters，已改为运动员体型、运动服和清爽马尾；见 [角色来源与重建](assets/athletes/README.md)。球场、球拍、运动服着色、马尾网格、程序动作与合成音效由本工程实现；字体许可见 `assets/FONT-LICENSE.txt`，Godot 许可见 `docs/GODOT-LICENSE.txt`，服务端 Node.js 及其第三方许可见 `docs/NODE-LICENSE.txt`。

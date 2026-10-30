@@ -51,6 +51,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -Web
 node tools/check_checkout_entry.cjs
+node tools/check_server_access.cjs
 node tools/build_server.cjs
 python -B tools/package_server.py
 ```

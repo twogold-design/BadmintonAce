@@ -7,8 +7,8 @@ if (-not $admin.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 $ruleName = 'Badminton Ace LAN 8766'
 $existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
 if ($existing) {
-    $existing | Set-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -Profile Any -Protocol TCP -LocalPort 8766 -RemoteAddress LocalSubnet -Program $exe
+    $existing | Set-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -Profile Any -Protocol TCP -LocalPort 8766 -RemoteAddress Any -Program $exe
 } else {
-    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8766 -RemoteAddress LocalSubnet -Program $exe -Profile Any | Out-Null
+    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8766 -RemoteAddress Any -Program $exe -Profile Any | Out-Null
 }
-Write-Output 'Ready: only TCP 8766, this server executable, and LocalSubnet are allowed. Firewall stays enabled.'
+Write-Output 'Ready: TCP 8766 for this server executable accepts any reachable source address. Firewall stays enabled.'

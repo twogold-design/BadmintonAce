@@ -9,7 +9,7 @@ function privateAddress(value) {
   }
   return isIP(address)===6&&(address==='::1'||/^(fc|fd)/.test(address)||/^fe[89ab]/.test(address));
 }
-function allowRequest(req,lanOnly=true){
+function allowRequest(req,lanOnly=false){
   if(!lanOnly)return true;
   if(!privateAddress(req.socket.remoteAddress))return false;
   // LAN mode accepts direct clients only; do not trust public proxy headers.

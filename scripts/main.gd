@@ -2034,7 +2034,7 @@ func _network_process(dt: float) -> void:
 	if ready != WebSocketPeer.STATE_OPEN:
 		net_connect_elapsed += dt
 		if net_connect_elapsed > 10:
-			_show_login("连接超时，请确认同一局域网内的服务器已启动。")
+			_show_login("连接超时，请确认服务器已启动，且可以访问服务器地址和端口。")
 		return
 	if not net_connected:
 		net_connected = true
@@ -2179,7 +2179,7 @@ func _receive_packet(d: Dictionary) -> void:
 			room_code = ""
 			net_match_id = ""
 			_show_lobby()
-			net_status = str(d.get("message","无法与对手直连，本局未计分。请确认在同一局域网后重试。"))
+			net_status = str(d.get("message","无法与对手直连，本局未计分。请检查两台玩家电脑是否允许互相通信。"))
 		"logged_out":
 			_logout(str(d.get("message","")),false)
 		"start":
