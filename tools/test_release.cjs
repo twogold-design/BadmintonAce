@@ -20,6 +20,7 @@ function run(file){return new Promise((resolve,reject)=>{
   });
   await run('server/test-links.js');
   await run('server/test-access.js');
+  await run('server/test-relay.js');
   await run('server/test-records.js');
   await run('server/test-auto-login.js');
   await run('server/test-forfeit.js');

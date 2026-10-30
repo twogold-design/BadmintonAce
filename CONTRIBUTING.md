@@ -51,9 +51,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -Web
 node tools/check_checkout_entry.cjs
-node tools/check_server_access.cjs
+node tools/check_server_access.cjs --browser
 node tools/build_server.cjs
 python -B tools/package_server.py
+python -B tools/package_cloud.py
 ```
 
 网页包由 build.ps1 生成；本地 index.html 所需的 local-data.js、local-loader.js 必须一起发。服务器 EXE 从服务器源码打包；不要覆盖正在运行的 EXE，先停止自己的测试服务。联机测试使用独立端口，不占用正式主机 8766。源码服务器可直接 node server/server.js。
@@ -61,3 +62,5 @@ python -B tools/package_server.py
 网页与主机发布包都检查 200 MB 上限，比赛实际提交网页包。更新角色后检查正背面、引拍/触球/随挥以及浏览器中的男女角色，不能只看骨架测试结果。已有自动化只覆盖本机两个浏览器，正式比赛前仍需两台真实电脑测试网络、防火墙及性能。
 
 `tools/check_checkout_entry.cjs` 从 Git 暂存区复制完整的已跟踪文件到隔离目录，再用浏览器从本地文件入口进行单机回合测试；运行前先暂存准备提交的网页与源码。测试不借用工作区里的未跟踪导出文件，也不需要服务器。
+
+云端验证：设置 OPENSSL_BIN 后运行 `node tools/check_cloud_backend.cjs`，验证本地完整游戏包通过 HTTPS 反向代理/WSS 对战；后台不提供游戏资源，测试禁用 WebRTC。此项使用隔离数据库和端口，不等于真实公网部署验收。

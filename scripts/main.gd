@@ -146,9 +146,8 @@ var last_sent_move = Vector2(99,99)
 var move_refresh = 0.0
 
 func _ready() -> void:
-	peer.signal_out.connect(func(data): _net_send({"type":"signal","match":net_match_id,"signal":data}))
-	peer.opened.connect(func(): _net_send({"type":"peer_ready","match":net_match_id}))
-	peer.failed.connect(func(): _net_send({"type":"peer_failed","match":net_match_id}))
+	peer.opened.connect(func(): _net_send({"type":"relay_ready","match":net_match_id}))
+	peer.failed.connect(func(): _net_send({"type":"relay_failed","match":net_match_id}))
 	peer.packet_received.connect(_receive_peer_packet)
 	shot_rng.randomize()
 	FONT.base_font = FONT_SOURCE
@@ -1936,6 +1935,7 @@ func _net_send(packet: Dictionary) -> bool:
 			packet.seq = net_input_seq
 		return peer.send(packet)
 	if socket != null and socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
+		packet.protocol = 5
 		return socket.send_text(JSON.stringify(packet)) == OK
 	return false
 
@@ -1994,6 +1994,7 @@ func _network_process(dt: float) -> void:
 		state.challenge_status = challenge_status
 		state.challenge_award = challenge_award
 		state.peer_ready = peer.ready
+		state.transport = "websocket-relay"
 		state.peer_sent = peer.sent_packets
 		state.peer_received = peer.received_packets
 		state.peer_sent_bytes = peer.sent_bytes
@@ -2042,8 +2043,17 @@ func _network_process(dt: float) -> void:
 		auth_request.clear()
 		if is_instance_valid(login_password): login_password.text = ""
 	while socket != null and socket.get_available_packet_count() > 0:
-		var decoded = JSON.parse_string(socket.get_packet().get_string_from_utf8())
-		if decoded is Dictionary: _receive_packet(decoded)
+		var bytes = socket.get_packet()
+		if not socket.was_string_packet():
+			peer.receive_binary(bytes)
+			continue
+		var decoded = JSON.parse_string(bytes.get_string_from_utf8())
+		if decoded is Dictionary:
+			if decoded.get("type","")=="relay" and decoded.get("packet") is Dictionary:
+				peer.receive_packet(decoded.packet)
+			else:
+				peer.flush_states()
+				_receive_packet(decoded)
 	peer.poll(dt)
 	if screen != "game" or mode != "online" or net_match_closed: return
 	net_tick += dt
@@ -2139,7 +2149,7 @@ func _receive_packet(d: Dictionary) -> void:
 			remote_view.reset()
 			_end_match(int(d.winner),false)
 		"connection":
-			if int(d.get("version",0))<4:
+			if int(d.get("version",0))<5 or d.get("transport","")!="websocket-relay":
 				_show_login("服务器版本较旧，请更新并重启新版服务器。")
 				return
 			connection_scope = str(d.get("scope","local"))
@@ -2168,23 +2178,21 @@ func _receive_packet(d: Dictionary) -> void:
 			room_code = str(d.code)
 			net_match_id = str(d.match)
 			remote_avatar = "male"
-			net_status = "正在与对手建立直连…"
+			net_status = "正在准备服务器对战…"
 			_update_lobby_controls()
-			peer.start(net_role=="host")
-		"signal":
-			if str(d.get("match",""))==net_match_id: peer.receive_signal(d.signal)
+			peer.start(socket)
 		"peer_unavailable":
 			peer.close()
 			net_role = ""
 			room_code = ""
 			net_match_id = ""
 			_show_lobby()
-			net_status = str(d.get("message","无法与对手直连，本局未计分。请检查两台玩家电脑是否允许互相通信。"))
+			net_status = str(d.get("message","对局连接未就绪，本局未计分。请检查服务器连接后重试。"))
 		"logged_out":
 			_logout(str(d.get("message","")),false)
 		"start":
 			net_action = ""
-			net_status = "已与对手直连"
+			net_status = "已连接对战服务器"
 			net_role = str(d.role)
 			room_code = str(d.code)
 			net_match_id = str(d.match)

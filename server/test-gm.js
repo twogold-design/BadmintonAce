@@ -6,7 +6,7 @@ const {localRequest}=require('./gm');
 const root=path.resolve(__dirname,'..'),port=18769,base=`http://127.0.0.1:${port}`;
 const directory=fs.mkdtempSync(path.join(root,'.runtime','gm-test-')),sockets=[];
 let service,key;
-const send=(s,d)=>s.send(JSON.stringify(d));
+const send=(s,d)=>s.send(JSON.stringify({protocol:5,...d}));
 async function take(s,type){for(let t=0;t<500;t++){const i=s.queue.findIndex(x=>x.type===type);if(i>=0)return s.queue.splice(i,1)[0];await new Promise(r=>setTimeout(r,10));}throw Error('Missing '+type+JSON.stringify(s.queue));}
 async function connect(){const s=new WebSocket(base.replace('http','ws')+'/ws');s.queue=[];sockets.push(s);s.on('message',d=>s.queue.push(JSON.parse(d)));await once(s,'open');return s;}
 async function register(name){const s=await connect();send(s,{type:'register',name,password:'gm-test-pass'});s.profile=await take(s,'profile');return s;}
@@ -35,7 +35,7 @@ async function action(action,target,confirm){const r=await api('/gm/api/action',
  send(fresh,{type:'challenge_finish',challenge:run.challenge,score:[11,0]});await take(fresh,'error');
  send(fresh,{type:'challenge_start',opponent:'shi-yuqi'});const retry=await take(fresh,'challenge_started');send(fresh,{type:'challenge_finish',challenge:retry.challenge,score:[11,0]});assert.equal((await take(fresh,'challenge_recorded')).points,5);
  const snapshot=new DatabaseSync(path.join(directory,'gm-backups',reset.backup),{readOnly:true});assert.equal(snapshot.prepare('SELECT points FROM players WHERE id=?').get(a.profile.id).points,5);snapshot.close();
- send(fresh,{type:'create'});const room=await take(fresh,'created');send(b,{type:'join',code:room.code});const pair=await take(fresh,'paired');await take(b,'paired');send(fresh,{type:'peer_ready',match:pair.match});send(b,{type:'peer_ready',match:pair.match});await take(fresh,'start');await take(b,'start');
+ send(fresh,{type:'create'});const room=await take(fresh,'created');send(b,{type:'join',code:room.code});const pair=await take(fresh,'paired');await take(b,'paired');send(fresh,{type:'relay_ready',match:pair.match});send(b,{type:'relay_ready',match:pair.match});await take(fresh,'start');await take(b,'start');
  await action('delete_account',a.profile.id,'管理甲');await take(fresh,'logged_out');assert.match((await take(b,'peer_unavailable')).message,/管理员/);
  const list=(await api('/gm/api/players')).body;assert.equal(list.total,1);assert.equal(list.players[0].games,0);assert.equal(list.players[0].points,0);assert.equal(JSON.stringify(list).includes('password'),false);assert.equal(JSON.stringify(list).includes('token'),false);
  const again=await register('管理甲');assert.notEqual(again.profile.id,a.profile.id);

@@ -2,9 +2,7 @@
 !Dockerfile
 !server/
 !server/**
-!build/
-!build/web/
-!build/web/**
+!assets/
+!assets/challenges.json
 server/node_modules/
 server/test*.js
-build/web/local-data.js

@@ -1,14 +1,26 @@
 {
   "ok": true,
-  "room": "B8DCD2",
+  "transport": "websocket-relay",
+  "webrtc_disabled": true,
+  "binary_frames": 367,
+  "relayed_controls": [
+    "appearance",
+    "input",
+    "prepare",
+    "ping",
+    "pong",
+    "effect",
+    "pause"
+  ],
+  "room": "9949F7",
   "score": [
     1,
     0
   ],
   "stall_recovery": {
-    "lag_ms": 0,
-    "catchups": 1,
-    "coalesced": 50
+    "lag_ms": 23.4714383655774,
+    "catchups": 0,
+    "coalesced": 45
   },
   "checks": [
     "male/female menu selection",

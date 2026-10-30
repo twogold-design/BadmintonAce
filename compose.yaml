@@ -1,0 +1,40 @@
+name: badminton-ace
+services:
+  server:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      PORT: "8766"
+      LAN_ONLY: "0"
+      DATA_DIR: /app/data
+      SERVE_WEB: "0"
+      TRUST_PROXY: "1"
+      PUBLIC_URL: https://${GAME_DOMAIN:?Set GAME_DOMAIN in deploy/cloud.env}
+    volumes:
+      - game_data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8766/health').then(r=>r.json()).then(d=>{if(!d.ok||d.transport!=='websocket-relay')process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+  https:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      GAME_DOMAIN: ${GAME_DOMAIN:?Set GAME_DOMAIN in deploy/cloud.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      server:
+        condition: service_healthy
+volumes:
+  game_data:
+  caddy_data:
+  caddy_config:

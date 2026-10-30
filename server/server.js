@@ -7,11 +7,15 @@ const { WebSocketServer, WebSocket } = require('ws');
 const {connectionInfo, invitation} = require('./links');
 const {allowRequest} = require('./access');
 const {Records} = require('./records');
+const relay = require('./relay');
 const isExe = require('node:sea').isSea();
 const home = isExe ? path.dirname(process.execPath) : path.join(__dirname,'..');
 
 const port = Number(process.env.PORT || 8766);
 const lanOnly = process.env.LAN_ONLY === '1';
+const serveWeb = process.env.SERVE_WEB !== '0';
+// Enable only behind a trusted reverse proxy that overwrites forwarding headers.
+const trustProxy = process.env.TRUST_PROXY === '1';
 const root = path.resolve(process.env.WEB_ROOT || path.join(home, 'build', 'web'));
 const records = new Records(path.join(process.env.DATA_DIR || path.join(home,'data'),'rankings.sqlite'));
 const gm = new (require('./gm').GM)(records,process.env.DATA_DIR || path.join(home,'data'),invalidateManagedAccounts);
@@ -27,7 +31,11 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/health') {
     res.writeHead(200, {'Content-Type':'application/json'});
-    return res.end(JSON.stringify({ok:true, app:'badminton-ace', version:4, transport:'webrtc-direct',lanOnly, rooms:rooms.size}));
+    return res.end(JSON.stringify({ok:true, app:'badminton-ace', version:5, transport:'websocket-relay',lanOnly, rooms:rooms.size}));
+  }
+  if (!serveWeb) {
+    res.writeHead(req.url==='/'?200:404,{'Content-Type':'application/json; charset=utf-8'});
+    return res.end(JSON.stringify({app:'badminton-ace',service:'multiplayer-backend',websocket:'/ws'}));
   }
   if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405); return res.end(); }
   let pathname;
@@ -69,7 +77,7 @@ function invalidateManagedAccounts(ids){
   for(const [code,room] of rooms){
     if(!affected.has(room.host.profile.id)&&!affected.has(room.guest?.profile.id))continue;
     rooms.delete(code);
-    for(const client of [room.host,room.guest])if(client){client.code=null;if(!affected.has(client.profile.id))send(client,{type:'peer_unavailable',message:'管理员已取消本局，双方不计胜负或积分。'});}
+    for(const client of [room.host,room.guest])if(client){relay.clearPending(client);client.code=null;if(!affected.has(client.profile.id))send(client,{type:'peer_unavailable',message:'管理员已取消本局，双方不计胜负或积分。'});}
   }
   for(const client of wss.clients)if(affected.has(client.profile?.id)){
     client.challenge=null;client.profile=null;client.watchLeaders=false;client.watchRooms=false;
@@ -86,13 +94,17 @@ function validScore(score){
 function start(room,code,type='paired'){
   room.match=crypto.randomUUID();room.confirmations=new Map();room.finalScore=null;room.score=[0,0];room.settled=false;
   room.live=type==='rematch';room.ready=new Set();room.pairedAt=Date.now();
+  room.stateSeq=-1;room.moveSeq=-1;
+  relay.clearPending(room.host);relay.clearPending(room.guest);
   for(const [role,ws] of [['host',room.host],['guest',room.guest]])send(ws,{type,role,code,goal:room.goal,match:room.match});
 }
 function leave(ws) {
+  relay.clearPending(ws);
   if (!ws.code) return;
   const room = rooms.get(ws.code);
   if (room) {
     const other = room.host === ws ? room.guest : room.host;
+    relay.clearPending(other);
     if (other) {
       other.code = null;
       if(!shuttingDown&&!room.live){send(other,{type:'peer_left'});}
@@ -118,7 +130,7 @@ function leave(ws) {
 wss.on('connection', (ws, req) => {
   ws.connectionInfo = connectionInfo(req, port, lanOnly ? '' : process.env.PUBLIC_URL);
   ws.lanAddress = ws.connectionInfo.scope==='lan' ? ws.connectionInfo.base.replace(/^http:/,'ws:').replace(/^https:/,'wss:')+'/ws' : '';
-  send(ws,{type:'connection',version:4,...ws.connectionInfo,lanOnly,lanAddress:ws.lanAddress});
+  send(ws,{type:'connection',version:5,transport:'websocket-relay',...ws.connectionInfo,lanOnly,lanAddress:ws.lanAddress});
   ws.alive = true;
   ws.count = 0;
   ws.window = Date.now();
@@ -126,9 +138,17 @@ wss.on('connection', (ws, req) => {
   ws.authBusy=false;
   ws.on('pong', () => { ws.alive = true; });
   ws.on('error', () => {});
-  ws.on('message', async (raw) => {
+  ws.on('message', async (raw,isBinary) => {
     if (Date.now() - ws.window > 1000) { ws.window = Date.now(); ws.count = 0; }
     if (++ws.count > 160) return ws.close(1008, 'Too many messages');
+    if(isBinary){
+      const room=rooms.get(ws.code);
+      if(!ws.profile||ws.authBusy||!room?.live||room.host!==ws||!room.guest)return;
+      const frame=relay.snapshotInfo(raw);
+      if(!frame||frame.match!==room.match||frame.seq<=room.stateSeq)return;
+      room.stateSeq=frame.seq;
+      return relay.forward(room.guest,raw,true,frame.terminal?'':'state');
+    }
     let d;
     try { d = JSON.parse(raw.toString()); } catch { return error(ws, '消息格式错误。'); }
     if (!d || typeof d !== 'object' || Array.isArray(d)) return;
@@ -136,10 +156,11 @@ wss.on('connection', (ws, req) => {
     if(['register','login','hello'].includes(d.type)){
       if(ws.code||ws.challenge)return error(ws,'请先退出当前比赛再更换账号。',d.type);
       if(ws.authBusy)return;
-      const ip=req.socket.remoteAddress,now=Date.now();
+      const forwarded=String(req.headers['x-forwarded-for']||'').split(',').at(-1).trim();
+      const ip=trustProxy&&require('node:net').isIP(forwarded)?forwarded:req.socket.remoteAddress,now=Date.now();
       let attempt=authAttempts.get(ip);
       if(!attempt||now-attempt.since>60000){attempt={since:now,count:0};authAttempts.set(ip,attempt);}
-      if(++attempt.count>30)return error(ws,'登录尝试过于频繁，请一分钟后重试。',d.type);
+      if(++attempt.count>120)return error(ws,'登录尝试过于频繁，请一分钟后重试。',d.type);
       ws.authBusy=true;
       try{
         const profile=d.type==='hello'?records.resume(d.token):await records[d.type](d.name,d.password);
@@ -150,6 +171,7 @@ wss.on('connection', (ws, req) => {
       return;
     }
     if(!ws.profile||ws.authBusy)return error(ws,'请先登录账号。',d.type);
+    if(['create','join'].includes(d.type)&&d.protocol!==5)return error(ws,'请更新网页到服务器转发版后再进入在线对战。',d.type);
     if(d.type==='logout'){
       leave(ws);if(ws.challenge)records.cancelChallenge(ws.profile.id);ws.challenge=null;records.logout(ws.profile.token);ws.profile=null;ws.watchLeaders=false;ws.watchRooms=false;
       return send(ws,{type:'logged_out'});
@@ -181,7 +203,7 @@ wss.on('connection', (ws, req) => {
       const salt=crypto.randomBytes(16);
       rooms.set(code, {host:ws, guest:null, goal:11, created:Date.now(),salt,password:password?passwordHash(password,salt):null});
       ws.code = code;
-      send(ws, {type:'created', code, invitation:lanOnly ? '' : invitation(ws.connectionInfo,code),scope:ws.connectionInfo.scope,lanOnly,lanAddress:ws.lanAddress});
+      send(ws, {type:'created', code, invitation:lanOnly||!serveWeb ? '' : invitation(ws.connectionInfo,code),scope:ws.connectionInfo.scope,lanOnly,lanAddress:ws.lanAddress});
       ws.watchRooms=true;
       broadcastRooms();
       return;
@@ -211,29 +233,26 @@ wss.on('connection', (ws, req) => {
     if (!room || !room.guest) return;
     const host = room.host === ws;
     const other = host ? room.guest : room.host;
-    if(d.type==='signal'){
-      if(d.match!==room.match||room.live)return;
-      const signal=d.signal;
-      if(!signal||typeof signal!=='object')return;
-      if(['offer','answer'].includes(signal.kind)){
-        if(signal.kind!==(host?'offer':'answer')||typeof signal.sdp!=='string'||signal.sdp.length>16000)return;
-      }else if(signal.kind==='candidate'){
-        if(typeof signal.media!=='string'||!Number.isInteger(signal.index)||typeof signal.candidate!=='string'||signal.candidate.length>2048)return;
-      }else return;
-      return send(other,{type:'signal',match:room.match,signal});
+    if(d.type==='relay'){
+      if(!room.live)return;
+      const packet=relay.controlPacket(d.packet,host,room.match);
+      if(!packet)return;
+      const move=packet.type==='input'&&packet.action==='move';
+      if(move){if(packet.seq<=room.moveSeq)return;room.moveSeq=packet.seq;}
+      return relay.forward(other,JSON.stringify({type:'relay',packet}),false,move?'move':'');
     }
-    if(d.type==='peer_ready'){
+    if(d.type==='relay_ready'){
       if(d.match!==room.match||room.live)return;
       room.ready.add(ws.profile.id);
       if(room.ready.size===2){room.live=true;for(const [role,client] of [['host',room.host],['guest',room.guest]])send(client,{type:'start',role,code:ws.code,goal:11,match:room.match});}
       return;
     }
-    if(d.type==='peer_failed'){
+    if(d.type==='relay_failed'){
       if(d.match!==room.match)return;
       const code=ws.code;
-      // A failed P2P path with both server connections alive cannot identify a
-      // quitter. Actual departures still go through leave() and forfeit.
-      for(const client of [room.host,room.guest]){client.code=null;send(client,{type:'peer_unavailable'});}
+      // Startup cancellation is not a loss. Live departures use leave().
+      if(room.live)return;
+      for(const client of [room.host,room.guest]){relay.clearPending(client);client.code=null;send(client,{type:'peer_unavailable'});}
       rooms.delete(code);broadcastRooms();return;
     }
     if(d.type==='finish'){
@@ -253,8 +272,7 @@ wss.on('connection', (ws, req) => {
       if(!room.settled)return error(ws,'请等待双方完成结算后再开始下一局。');
       start(room,ws.code,'rematch');return;
     }
-    // No gameplay relay. State, movement, shots, effects and pause travel only
-    // over the peers' WebRTC channels, never this WebSocket connection.
+    // Unknown and legacy peer messages are not forwarded.
   });
   ws.on('close', () => leave(ws));
 });
@@ -281,7 +299,7 @@ const heartbeat = setInterval(() => {
 }, 15000);
 server.listen(port, '0.0.0.0', () => {
   console.log(`Badminton Ace: http://localhost:${port}`);
-  console.log(`Web root: ${root}`);
+  console.log(serveWeb ? `Web root: ${root}` : 'Backend only: game resources are not served.');
   console.log(`GM 管理（仅本机）: http://127.0.0.1:${port}/gm`);
   console.log('双击 GM管理.cmd 自动验证；或使用数据目录的 gm-key.txt。');
   console.log('谁是羽毛球高手 · 房间与战绩服务器（关闭窗口即停止服务）');

@@ -14,7 +14,7 @@ if(process.argv.includes('--service')){
   const port=18767,sockets=[];
   const service=fork(__filename,['--service'],{env:{...process.env,PORT:String(port),DATA_DIR:dir,LAN_ONLY:'1'},silent:true,windowsHide:true});
   service.stderr.pipe(process.stderr);
-  function send(s,d){s.send(JSON.stringify(d));}
+  function send(s,d){s.send(JSON.stringify({protocol:5,...d}));}
   async function take(s,type){
     const end=Date.now()+5000;
     while(Date.now()<end){const i=s.queue.findIndex(m=>m.type===type);if(i>=0)return s.queue.splice(i,1)[0];await new Promise(r=>setTimeout(r,10));}
@@ -28,7 +28,7 @@ if(process.argv.includes('--service')){
   async function match(){
     const a=await connect(),b=await connect();send(a,{type:'create'});const room=await take(a,'created');
     send(b,{type:'join',code:room.code});const pair=await take(a,'paired');await take(b,'paired');
-    send(a,{type:'peer_ready',match:pair.match});send(b,{type:'peer_ready',match:pair.match});
+    send(a,{type:'relay_ready',match:pair.match});send(b,{type:'relay_ready',match:pair.match});
     const start=await take(a,'start');await take(b,'start');return {a,b,id:start.match};
   }
   async function stats(s,id){send(s,{type:'leaders'});return (await take(s,'leaders')).players.find(p=>p.id===id);}
@@ -66,7 +66,7 @@ if(process.argv.includes('--service')){
     const preHost=await connect(),preGuest=await connect();
     send(preHost,{type:'create'});const pending=await take(preHost,'created');
     send(preGuest,{type:'join',code:pending.code});const pairing=await take(preGuest,'paired');await take(preHost,'paired');
-    send(preGuest,{type:'peer_failed',match:pairing.match});await take(preHost,'peer_unavailable');await take(preGuest,'peer_unavailable');
+    send(preGuest,{type:'relay_failed',match:pairing.match});await take(preHost,'peer_unavailable');await take(preGuest,'peer_unavailable');
     send(preGuest,{type:'list'});assert.ok(!(await take(preGuest,'rooms')).rooms.some(r=>r.code===pending.code));
     assert.equal((await stats(preGuest,preHost.profile.id)).games,0,'Failed direct connection does not count a match');
     const shutdownMatch=await match();

@@ -2,7 +2,7 @@
   "name": "badminton-ace-room-server",
   "version": "1.0.0",
   "private": true,
-  "description": "Accounts, points, rooms and WebRTC signaling for direct two-player matches",
+  "description": "Accounts, points, rooms and full WebSocket relay for two-player matches",
   "scripts": {"start": "node server.js", "test": "node test.js"},
   "dependencies": {"ws": "^8.18.0"},
   "engines": {"node": ">=24"}

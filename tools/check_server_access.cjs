@@ -44,6 +44,7 @@ function run(file) {
     const health = await request('/health');
     assert.equal(health.status, 200);
     assert.equal(JSON.parse(health.body).lanOnly, false);
+    assert.equal(JSON.parse(health.body).transport, 'websocket-relay');
     assert.equal((await request('/gm/api/players')).status, 403, 'GM remains local-only');
     await new Promise((resolve, reject) => {
       socket = new WebSocket(env.TEST_URL, { headers });
@@ -61,6 +62,7 @@ function run(file) {
     });
     socket.close();
     await run('server/test-access.js');
+    await run('server/test-relay.js');
     await run('server/test.js');
     await run('server/test-points.js');
     if (process.argv.includes('--browser')) await run('tools/online_check.cjs');

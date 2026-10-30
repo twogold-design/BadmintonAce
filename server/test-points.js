@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const {WebSocket}=require('ws');
 const url=process.env.TEST_URL||'ws://127.0.0.1:18765/ws',sockets=[];
-function send(s,d){s.send(JSON.stringify(d));}
+function send(s,d){s.send(JSON.stringify({protocol:5,...d}));}
 async function take(s,type){const end=Date.now()+5000;while(Date.now()<end){const i=s.queue.findIndex(m=>m.type===type);if(i>=0)return s.queue.splice(i,1)[0];await new Promise(r=>setTimeout(r,10));}throw Error('Missing '+type);}
 async function connect(){const s=new WebSocket(url);s.queue=[];sockets.push(s);s.on('message',r=>s.queue.push(JSON.parse(r)));await require('node:events').once(s,'open');return s;}
 (async()=>{

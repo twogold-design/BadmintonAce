@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "backend_only": true,
+  "https_proxy": true,
+  "wss_gameplay": true,
+  "game_resources_served": false,
+  "real_public_deployment": false,
+  "online": {
+    "ok": true,
+    "transport": "websocket-relay",
+    "webrtc_disabled": true,
+    "binary_frames": 359,
+    "relayed_controls": [
+      "appearance",
+      "prepare",
+      "input",
+      "ping",
+      "pong",
+      "effect",
+      "pause"
+    ],
+    "room": "BFCC1B",
+    "score": [
+      1,
+      0
+    ],
+    "stall_recovery": {
+      "lag_ms": 37.890674022492,
+      "catchups": 2,
+      "coalesced": 37
+    },
+    "checks": [
+      "male/female menu selection",
+      "selection persists after reload",
+      "female host / male guest synchronized",
+      "create",
+      "browse idle rooms and join",
+      "nonpublic share blocked",
+      "serve",
+      "remote movement",
+      "guest return",
+      "P2 own baseline camera",
+      "P2 local-direction movement",
+      "buffered ball and velocity rendering",
+      "state sync",
+      "score sync",
+      "pause/resume",
+      "1.8-second guest stall recovery",
+      "landing replaces obsolete flight",
+      "disconnect"
+    ],
+    "errors": []
+  }
+}

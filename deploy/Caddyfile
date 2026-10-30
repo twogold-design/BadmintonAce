@@ -1,0 +1,5 @@
+{$GAME_DOMAIN} {
+    @management path /gm /gm/*
+    respond @management "Not available on public endpoint" 403
+    reverse_proxy server:8766
+}
