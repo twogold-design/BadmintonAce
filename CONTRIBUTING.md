@@ -1,16 +1,18 @@
 # 协作开发
 
-仓库包含可继续开发的 Godot 工程、完整新角色源文件、服务器源码、测试和发布脚本。build、dist、缓存、node_modules、EXE 与玩家数据库是生成或私人运行数据，不纳入版本管理。
+仓库包含 Godot 工程、完整角色源文件、服务器源码、测试、发布脚本，以及可直接运行的 `build/web/` 网页版本。其余 build 输出、dist、缓存、node_modules、EXE 与玩家数据库不纳入版本管理。
 
 ## 首次拉取后怎样运行
 
-**调试游戏只需 Godot 4.7.2。** 导入仓库根目录的 `project.godot`，等待资源导入完成，按 **F5**，点击“单机游玩”。角色 GLB、纹理、字体和脚本均已提交，不需要先安装 Blender、启动服务器或导出网页。
+**先试玩：直接打开仓库根目录的 `index.html`，点击“单机游玩”。** git clone 或 Code → Download ZIP 完整解压后即可运行，不用安装 Godot、Node.js 或自行导出。入口会自动加载随仓库提供的 `build/web/`，请保留该目录全部文件。单机不需要服务器；登录、排行榜和局域网对战需要可访问的游戏服务器。
 
-Windows 上建议设置 `GODOT_BIN` 后双击“打开Godot编辑器.cmd”，这样缓存与用户数据会保存在工程的 `.runtime` 中。工具路径按自己的电脑设置，不要求与原开发者的盘符一致。
+**修改和调试源码：** 用 Godot 4.7.2 导入根目录 `project.godot`，等待资源导入完成，按 F5。角色 GLB、纹理、字体和脚本均已提交，常规游戏开发不需要 Blender。
 
-**双击源码目录的 index.html 不等于运行 Godot 源码。** 首次拉取没有 `build/web/`，新版入口会显示启动指引；旧版入口因此黑屏。需要在浏览器里调试时，完成下方网页构建步骤，再打开根目录 `index.html`，它会自动进入导出后的游戏。每次修改游戏后需重新导出，浏览器才会使用新版本。
+Windows 上建议设置 `GODOT_BIN` 后双击“打开Godot编辑器.cmd”，缓存与用户数据会保存在工程的 `.runtime` 中。工具路径按自己的电脑设置，不要求与原开发者的盘符一致。
 
-“开始游戏.cmd”用于带服务器 EXE 的完整发布包；源码协作者直接按 F5，或构建网页后运行 `node server/server.js` 测试联机。发给试玩玩家的是完整 `dist/BadmintonAce-Web.zip`，而不是源码 ZIP 或单独一个 HTML。
+修改源码不会自动改变已导出的网页。需要在浏览器检查自己的修改时，完成下方构建环境准备，运行 `重新导出网页版.cmd`。提交可试玩版本时，将源码和更新后的 `build/web/` 一起提交，保证同伴拉取后打开 `index.html` 看到的是新版本。入口若显示缺少网页文件，检查是否仅下载了 HTML、使用了稀疏检出，或尚未拉取包含网页资源的最新提交。
+
+“开始游戏.cmd”用于带服务器 EXE 的完整发布包。源码协作者也可安装服务端依赖后运行 `node server/server.js` 测试联机。试玩玩家可以使用完整仓库副本或独立的 `dist/BadmintonAce-Web.zip`。
 
 ## 本地准备
 
@@ -30,7 +32,7 @@ Node/npm、Python 应在 PATH；浏览器测试默认 Chrome，可设置 ACE_BRO
 
 ## 分工和提交
 
-从 main 创建个人分支（建议 codex/简短任务名），小步提交，通过 Pull Request 合并。多人避免同时编辑 main.gd 或同一个 .blend；提前约定文件负责人。二进制模型无法逐行合并，应由一个人导出并连同生成脚本、骨骼 JSON 和来源许可一起提交。不要提交 .godot、.runtime、dist、密钥、数据库或个人 IP 配置的无关改动。
+从 main 创建个人分支（建议 codex/简短任务名），小步提交，通过 Pull Request 合并。多人避免同时编辑 main.gd 或同一个 .blend；提前约定文件负责人。二进制模型无法逐行合并，应由一个人导出并连同生成脚本、骨骼 JSON 和来源许可一起提交。提交可试玩版本时包含 build/web；不要提交其他构建输出、.godot、.runtime、dist、密钥、数据库或个人 IP 配置的无关改动。
 
 | 范围 | 文件 |
 |---|---|
@@ -48,6 +50,7 @@ Node/npm、Python 应在 PATH；浏览器测试默认 Chrome，可设置 ACE_BRO
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1 -Web
+node tools/check_checkout_entry.cjs
 node tools/build_server.cjs
 python -B tools/package_server.py
 ```
@@ -55,3 +58,5 @@ python -B tools/package_server.py
 网页包由 build.ps1 生成；本地 index.html 所需的 local-data.js、local-loader.js 必须一起发。服务器 EXE 从服务器源码打包；不要覆盖正在运行的 EXE，先停止自己的测试服务。联机测试使用独立端口，不占用正式主机 8766。源码服务器可直接 node server/server.js。
 
 网页与主机发布包都检查 200 MB 上限，比赛实际提交网页包。更新角色后检查正背面、引拍/触球/随挥以及浏览器中的男女角色，不能只看骨架测试结果。已有自动化只覆盖本机两个浏览器，正式比赛前仍需两台真实电脑测试网络、防火墙及性能。
+
+`tools/check_checkout_entry.cjs` 从 Git 暂存区复制完整的已跟踪文件到隔离目录，再用浏览器从本地文件入口进行单机回合测试；运行前先暂存准备提交的网页与源码。测试不借用工作区里的未跟踪导出文件，也不需要服务器。

@@ -2,7 +2,10 @@
 .runtime/
 tools/node_modules/
 server/node_modules/
-build/
+# Commit the ready-to-play Web export; other build outputs stay local.
+build/*
+!build/.gdignore
+!build/web/
 dist/
 *.log
 data/

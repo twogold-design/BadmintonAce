@@ -26,9 +26,9 @@
     <h1>谁是羽毛球高手</h1>
     <p class="status" id="status" role="status">正在检查本地网页版本…</p>
     <div id="help">
-      <p>这是工程源码入口。首次从 GitHub 拉取后，需要用 Godot 运行工程，或先导出网页版本。</p>
+      <p>最新版仓库已包含可直接游玩的网页。请完整拉取或解压仓库，并保留 build/web 文件夹；只下载本 HTML 无法启动。</p>
       <section class="card">
-        <h2>参与开发 · 直接运行工程</h2>
+        <h2>需要修改源码时 · 用 Godot 调试</h2>
         <ol>
           <li>使用 Godot 4.7.2 导入本文件夹中的 <code>project.godot</code>。</li>
           <li>等待资源导入完成，按 <strong>F5</strong> 运行，点击“单机游玩”即可测试。</li>
@@ -36,9 +36,9 @@
         <p class="note">模型和游戏源码已包含在仓库中；单机调试无需服务器、Node.js 或 Blender。</p>
       </section>
       <section class="card">
-        <h2>需要浏览器版本</h2>
+        <h2>网页文件缺失或需要重新导出</h2>
         <p>按照 <a href="CONTRIBUTING.md">协作开发指南</a> 配置 Godot、Node.js 和网页导出模板，再运行文件夹中的 <strong>重新导出网页版.cmd</strong>。完成后重新打开本页即可进入游戏。</p>
-        <p class="note">导出结果位于 <code>build/web/</code>；分享试玩时请发送完整的 <code>dist/BadmintonAce-Web.zip</code>，不能只发送 HTML。源码包不包含这些生成文件。</p>
+        <p class="note">导出结果位于 <code>build/web/</code>；分享试玩时请发送完整的 <code>dist/BadmintonAce-Web.zip</code>，不能只发送 HTML。最新版仓库已包含这些网页文件。</p>
       </section>
     </div>
     <noscript><p>浏览器已禁用 JavaScript，请启用后重新打开游戏。</p></noscript>
@@ -49,7 +49,7 @@
     const statusLine = document.getElementById('status');
     const probe = document.createElement('script');
     probe.src = './build/web/entry-ready.js';
-    probe.onerror = () => { statusLine.textContent = '尚未找到导出的网页文件，请按以下步骤启动。'; };
+    probe.onerror = () => { statusLine.textContent = '网页资源不完整，请拉取最新版仓库或完整解压下载包。'; };
     probe.onload = () => {
       if (window.ACE_WEB_BUILD !== 1) { probe.onerror(); return; }
       statusLine.textContent = '正在进入游戏…';

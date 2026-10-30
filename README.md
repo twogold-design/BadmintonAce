@@ -4,9 +4,11 @@ Godot 4.7.2 制作的 3D 网页羽毛球游戏，支持单人 AI、练习和两�
 
 ## 从 GitHub 获取
 
-仓库包含 Godot 工程、游戏与服务器源码、字体及许可、构建脚本、测试和使用说明。直接游玩请到 [版本下载页](https://github.com/twogold-design/BadmintonAce/releases) 下载 `BadmintonAce-Web.zip`；自建局域网主机下载 `BadmintonAce-Server.zip`，其中包含服务器 EXE 和配套网页。
+仓库包含 Godot 工程、游戏与服务器源码、模型、字体及许可，以及可直接游玩的 `build/web/` 网页文件。**同伴拉取最新版，或下载 Code → Download ZIP 并完整解压后，直接打开根目录 `index.html`，点击“单机游玩”即可玩。无需安装 Godot、Node.js，也无需自己导出。** 请保留整个 `build/web/` 文件夹，不能只复制一个 HTML。
 
-GitHub 的 Code → Download ZIP 和 git clone 得到的是源码。协作者用 Godot 4.7.2 导入 `project.godot`，等待导入后按 **F5 → 单机游玩** 即可调试。浏览器运行需先导出；根目录 `index.html` 在缺少导出文件时显示启动指引，完成导出后自动进入游戏。生成的 `build/`、`dist/`、服务器 EXE、依赖目录、缓存及玩家数据库不纳入源码版本管理。
+根目录入口自动进入随仓库提供的网页版本；登录和局域网对战仍需可访问的游戏服务器，单机挑战和练习无需服务器。独立试玩包也可从 [版本下载页](https://github.com/twogold-design/BadmintonAce/releases) 获取 `BadmintonAce-Web.zip`；自建局域网主机使用包含服务器 EXE 和配套网页的 `BadmintonAce-Server.zip`。
+
+修改源码时仍可用 Godot 4.7.2 导入 `project.godot` 并按 F5 调试。修改后需要更新浏览器版本时，运行 `重新导出网页版.cmd`，将生成的 `build/web/` 更新与源码一起提交。其他构建输出、`dist/`、服务器 EXE、依赖目录、缓存及玩家数据库不纳入版本管理。
 
 开发时用 Godot 4.7.2 打开 `project.godot`。可直接编辑的新角色 `.blend`、运行时 `.glb`、原始网格、纹理、授权与重建脚本均包含在仓库中。协作分工、安装、测试和重新导出步骤见 [协作开发指南](CONTRIBUTING.md)。常规游戏开发不需要安装 Blender。
 

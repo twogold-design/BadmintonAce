@@ -1,0 +1,2 @@
+# Generated Web assets must remain byte-for-byte intact.
+build/web/** -text -diff linguist-generated=true

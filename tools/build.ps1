@@ -28,7 +28,7 @@ body,#status{background:#0b1721}#status-splash{display:none!important}
 '@
 $html = $html.Replace('</head>', $css + '</head>')
 [IO.File]::WriteAllText($htmlPath,$html,[Text.UTF8Encoding]::new($false))
-# Keep the tracked source entry: it explains startup for fresh checkouts.
+# Keep the root launcher; commit this Web export so fresh checkouts can play.
 Copy-Item -LiteralPath 'tools\web-config.js' -Destination 'build\web\config.js' -Force
 Copy-Item -LiteralPath 'assets\athletes\ATHLETE-LICENSE.txt' -Destination 'build\web\ATHLETE-LICENSE.txt' -Force
 Copy-Item -LiteralPath 'assets\FONT-LICENSE.txt' -Destination 'build\web\FONT-LICENSE.txt' -Force
