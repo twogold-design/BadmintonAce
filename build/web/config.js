@@ -1,5 +1,3 @@
-// Cloud backend deployment: replace the assignment below with your WSS URL.
-// This same setting works for a local game package or a competition platform.
-// Example: window.ACE_SERVER = 'wss://badminton.example.com/ws';
-// Preconfigured LAN host for downloaded/offline clients. Hosted pages use their own origin.
-window.ACE_SERVER = location.protocol === 'file:' ? 'ws://10.11.179.27:8766/ws' : '';
+// Alibaba Cloud backend: temporary unencrypted endpoint for local-package testing.
+// Replace with the verified WSS endpoint before publishing on an HTTPS platform.
+window.ACE_SERVER = 'ws://121.40.81.89:8766/ws';
