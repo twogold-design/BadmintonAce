@@ -1,0 +1,7 @@
+{
+  "hourlyOutboundGB": 1.0,
+  "sustainedOutboundMbps": 5.0,
+  "sustainedSeconds": 30,
+  "pollSeconds": 1,
+  "adapterNames": []
+}

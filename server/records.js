@@ -6,9 +6,9 @@ const path=require('node:path');
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
 const scrypt=require('node:util').promisify(crypto.scrypt);
 const opponents=new Set(require('../assets/challenges.json').map(row=>row.id));
-function accountName(value){
+function accountName(value,maxLength=7){
  const name=String(value||'').normalize('NFKC').trim();
- if(!/^[\p{L}\p{N}_-]{2,16}$/u.test(name))throw Error('账号须为 2–16 个字母、汉字、数字、下划线或短横线。');
+ if(!/^[\p{L}\p{N}_-]{2,16}$/u.test(name)||Array.from(name).length>maxLength)throw Error('新账号须为 2–7 个字母、汉字、数字、下划线或短横线。');
  return {name,key:name.toLowerCase()};
 }
 function checkPassword(value){if(typeof value!=='string'||value.length<3||value.length>128)throw Error('密码须为 3–128 个字符。');}
@@ -67,7 +67,9 @@ class Records {
   }catch(e){this.db.exec('ROLLBACK');throw e;}
  }
  async login(value,password){
-  const {key}=accountName(value);checkPassword(password);
+  // Old longer accounts keep their identity, password and earned scores.
+  // Only an existing account may use the previous 16-character limit.
+  const {key}=accountName(value,16);checkPassword(password);
   const account=this.db.prepare('SELECT * FROM accounts WHERE account=?').get(key);
   if(!account){
    try{return await this.register(value,password);}

@@ -4,7 +4,7 @@ async function fill(page,x,y,text){await page.mouse.click(x,y);await page.keyboa
 async function enterAccount(page,prefix='测试'){
  await page.waitForFunction(()=>['login','menu'].includes(window.badmintonState?.screen),null,{timeout:30000});
  if(await page.evaluate(()=>window.badmintonState.screen==='menu'))return;
- if(!testAccounts.has(page))testAccounts.set(page,'test'+crypto.randomBytes(5).toString('hex'));
+ if(!testAccounts.has(page))testAccounts.set(page,'t'+crypto.randomBytes(3).toString('hex'));
  await fill(page,700,355,testAccounts.get(page));
  await fill(page,700,455,'browser-test-pass');await page.mouse.click(720,555);
  await page.waitForFunction(()=>window.badmintonState?.screen==='menu',null,{timeout:15000});

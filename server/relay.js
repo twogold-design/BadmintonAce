@@ -66,7 +66,7 @@ function clearPending(ws) {
 function flush(ws) {
   ws.relayTimer = null;
   if (ws.readyState !== WebSocket.OPEN) return clearPending(ws);
-  if (ws.bufferedAmount <= 4096) {
+  if (ws.bufferedAmount <= 1024) {
     for (const [key, frame] of ws.relayPending || []) {
       ws.relayPending.delete(key);
       ws.send(frame.raw,{binary:frame.binary});
@@ -80,7 +80,7 @@ function forward(ws, raw, binary, replaceKey = '') {
   // Replace stale snapshots/movement with the latest one while the receiver is slow.
   if (replaceKey) {
     ws.relayPending?.delete(replaceKey);
-    if (ws.bufferedAmount > 4096) {
+    if (ws.bufferedAmount > 1024) {
       ws.relayPending ||= new Map();
       ws.relayPending.set(replaceKey,{raw,binary});
       if (!ws.relayTimer) ws.relayTimer = setTimeout(() => flush(ws),16);

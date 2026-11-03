@@ -1,0 +1,127 @@
+{
+  "method": "Identical real Godot Web game trace; 5 concurrent room pairs; accelerated local replay; exact byte equality checked for every delivery. Socket bytes include WebSocket framing, exclude TLS/TCP/IP overhead, authentication and unrelated host traffic. Not a cloud bill or ECS benchmark.",
+  "trace_seconds": 23.27,
+  "baseline": {
+    "connections": 10,
+    "messages": 3205,
+    "payload_bytes": 889295,
+    "wire_bytes": 901545,
+    "categories": {
+      "controls": {
+        "messages": 1285,
+        "wire_bytes": 169125,
+        "payload_bytes": 164555
+      },
+      "serve": {
+        "messages": 590,
+        "wire_bytes": 215480,
+        "payload_bytes": 213120
+      },
+      "rally": {
+        "messages": 1130,
+        "wire_bytes": 438260,
+        "payload_bytes": 433740
+      },
+      "point": {
+        "messages": 200,
+        "wire_bytes": 78680,
+        "payload_bytes": 77880
+      }
+    },
+    "elapsed_ms": 59.804800000000014,
+    "cpu_ms": 94,
+    "delivery_ms": {
+      "p50": 0.15630000000000166,
+      "p95": 0.2775000000000034,
+      "p99": 0.42659999999999343,
+      "max": 1.746300000000005
+    },
+    "rss_mb": 53.12512
+  },
+  "independent": {
+    "connections": 10,
+    "messages": 3205,
+    "payload_bytes": 889295,
+    "wire_bytes": 535955,
+    "categories": {
+      "controls": {
+        "messages": 1285,
+        "wire_bytes": 143225,
+        "payload_bytes": 164555
+      },
+      "serve": {
+        "messages": 590,
+        "wire_bytes": 94485,
+        "payload_bytes": 213120
+      },
+      "rally": {
+        "messages": 1130,
+        "wire_bytes": 254635,
+        "payload_bytes": 433740
+      },
+      "point": {
+        "messages": 200,
+        "wire_bytes": 43610,
+        "payload_bytes": 77880
+      }
+    },
+    "elapsed_ms": 105.5145,
+    "cpu_ms": 265,
+    "delivery_ms": {
+      "p50": 0.28599999999997294,
+      "p95": 0.47229999999998995,
+      "p99": 1.064799999999991,
+      "max": 2.5132999999999868
+    },
+    "rss_mb": 61.50144
+  },
+  "optimized": {
+    "connections": 10,
+    "messages": 3205,
+    "payload_bytes": 889295,
+    "wire_bytes": 126835,
+    "categories": {
+      "controls": {
+        "messages": 1285,
+        "wire_bytes": 27155,
+        "payload_bytes": 164555
+      },
+      "serve": {
+        "messages": 590,
+        "wire_bytes": 11555,
+        "payload_bytes": 213120
+      },
+      "rally": {
+        "messages": 1130,
+        "wire_bytes": 82085,
+        "payload_bytes": 433740
+      },
+      "point": {
+        "messages": 200,
+        "wire_bytes": 6040,
+        "payload_bytes": 77880
+      }
+    },
+    "elapsed_ms": 78.74289999999996,
+    "cpu_ms": 204,
+    "delivery_ms": {
+      "p50": 0.2259999999999991,
+      "p95": 0.2983000000000402,
+      "p99": 0.48169999999998936,
+      "max": 0.7259000000000242
+    },
+    "rss_mb": 62.676992
+  },
+  "saved_percent": 85.93137336461297,
+  "reference": "https://github.com/websockets/ws#websocket-compression",
+  "observed_game_trace_gb_per_hour": 0.01962208852599914,
+  "verification": {
+    "caddy_wss_gameplay": true,
+    "public_ecs_tested": false,
+    "rally_snapshots_hz": 30,
+    "physics_hz": 120,
+    "changed_input_immediate": true,
+    "existing_client_without_compression": true,
+    "compression_off_fallback": true
+  }
+}

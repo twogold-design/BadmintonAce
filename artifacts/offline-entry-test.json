@@ -1,7 +1,7 @@
 {
   "ok": true,
-  "loading_ms": 18661,
-  "first_offline_entry_ms": 119,
+  "loading_ms": 20279,
+  "first_offline_entry_ms": 150,
   "server_connections": 0,
   "errors": []
 }

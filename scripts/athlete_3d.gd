@@ -400,9 +400,13 @@ static func interpolate_arm_frame(a: Basis, b: Basis, weight: float) -> Basis:
 static var measurements: Dictionary = {}
 static func measured(avatar: String, bone_name: String) -> Vector3:
 	if not measurements.has(avatar):
-		measurements[avatar] = JSON.parse_string(FileAccess.get_file_as_string("res://assets/athletes/"+avatar+"-rig.json"))
-	var a: Array = measurements[avatar][bone_name].head
-	return Vector3(a[0],a[1],a[2])
+		var rig: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/athletes/"+avatar+"-rig.json"))
+		var points = {}
+		for name_ in rig:
+			var a: Array = rig[name_].head
+			points[name_] = Vector3(a[0],a[1],a[2])
+		measurements[avatar] = points
+	return measurements[avatar][bone_name]
 
 static func body_frame(p: Dictionary, index: int) -> Dictionary:
 	var avatar = str(p.get("avatar","male"))
@@ -544,7 +548,8 @@ static func can_reach(p: Dictionary, index: int, shuttle: Vector3, stroke: Strin
 		var upper_length=measured(avatar,"upperarm_r").distance_to(measured(avatar,"lowerarm_r"))
 		var lower_length=measured(avatar,"lowerarm_r").distance_to(measured(avatar,"hand_r"))
 		var offset=clampf(contact.distance_to(frame.shoulder)-upper_length-lower_length+.004,RACKET_CENTER,RACKET_CENTER+.12)
-		if not defensive_contact(avatar,frame.shoulder,contact,frame.chest_basis,offset,backhand,shuttle.z-float(p.jump)>1.9,underarm).valid:return false
+		# Reachability only needs one valid pose, not the lowest-cost visual pose.
+		if not defensive_contact(avatar,frame.shoulder,contact,frame.chest_basis,offset,backhand,shuttle.z-float(p.jump)>1.9,underarm,false,false,true).valid:return false
 
 	return true
 
@@ -645,8 +650,10 @@ static func natural_underarm_contact(avatar: String, shoulder: Vector3, contact:
 	var lower=measured(avatar,"lowerarm_r").distance_to(measured(avatar,"hand_r"))
 	var chest=shoulder-chest_basis*(measured(avatar,"upperarm_r")-measured(avatar,"spine_03"))
 	var change=Basis(Vector3.UP,-PI/4 if backhand else FOREHAND_ROLL)
+	var chest_inverse=chest_basis.inverse()
+	var mount=grip_mount_for(avatar,backhand)
 	var grip_change=HAND_GRIP.inverse()*change.inverse()
-	var tip=grip_change*(grip_mount_for(avatar,backhand)+Vector3.UP*RACKET_CENTER)
+	var tip=grip_change*(mount+Vector3.UP*RACKET_CENTER)
 	var planar_tip=Vector3(tip.x,0,tip.z)
 	var candidates:Array[Dictionary]=[]
 	for lateral in ([-.9,-.6,-.3,0.0,.3,.6,.9] if backhand else [0.0,.3,.6,.9,1.2]):
@@ -659,7 +666,7 @@ static func natural_underarm_contact(avatar: String, shoulder: Vector3, contact:
 					var low=up*cos(deg_to_rad(degrees))+bend.rotated(up,swivel)*sin(deg_to_rad(degrees))
 					var elbow=shoulder+chest_basis*up*upper
 					var hand=elbow+chest_basis*low*lower
-					if (chest_basis.inverse()*(hand-shoulder)).z>-.12:continue
+					if (chest_inverse*(hand-shoulder)).z>-.12:continue
 					var forearm=chest_basis*low
 					var hinge=(chest_basis*up).cross(forearm).normalized()
 					var wanted=Vector3.UP if backhand else Vector3.DOWN
@@ -673,9 +680,9 @@ static func natural_underarm_contact(avatar: String, shoulder: Vector3, contact:
 						var aim=unbent.transposed()*(contact-hand)
 						var wrist=clampf(planar_tip.signed_angle_to(Vector3(aim.x,0,aim.z),Vector3.UP),-.20,.20)
 						var hf=unbent*Basis(Vector3.UP,wrist)
-						var grip=hf*HAND_GRIP.inverse()*change.inverse()
-						var head=hand+grip*grip_mount_for(avatar,backhand)+grip.y*RACKET_CENTER
-						var side=(chest_basis.inverse()*(head-chest)).x
+						var grip=hf*grip_change
+						var head=hand+grip*mount+grip.y*RACKET_CENTER
+						var side=(chest_inverse*(head-chest)).x
 						if (backhand and side>-.08) or (not backhand and side<.08):continue
 						var cost=head.distance_squared_to(contact)*30+pow((degrees-80)/80.0,2)*.15+pow(twist-neutral_twist,2)*.04
 						cost+=pow(maxf(0,hand.y-maxf(contact.y+.1,shoulder.y-.4)),2)*50
@@ -686,22 +693,25 @@ static func natural_underarm_contact(avatar: String, shoulder: Vector3, contact:
 		if underarm_path_clear(avatar,shoulder,candidate.elbow,candidate.hand,candidate.basis,chest_basis,backhand):return candidate
 	return {"axis":Vector3.UP,"hand":shoulder,"basis":Basis.IDENTITY,"offset":RACKET_CENTER,"cost":INF,"valid":false}
 
-static func underarm_contact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool, body_clearance: bool = false) -> Dictionary:
+static func underarm_contact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool, body_clearance: bool = false, feasibility_only: bool = false) -> Dictionary:
 	if body_clearance:return natural_underarm_contact(avatar,shoulder,contact,chest_basis,backhand)
-	var best=underarm_contact_exact(avatar,shoulder,contact,chest_basis,offset,backhand)
+	var best=underarm_contact_exact(avatar,shoulder,contact,chest_basis,offset,backhand,feasibility_only)
 	if best.valid:return best
 	# A close body return may miss the exact shuttle centre by a small amount.
 	# Prefer a relaxed wrist/elbow to a tightly folded arm or a large body turn.
 	for shift in [Vector3(0,0,-.26),Vector3(.18,0,0),Vector3(-.18,0,0),Vector3(0,0,.20),Vector3(.14,0,-.16),Vector3(-.14,0,-.16),Vector3(0,.16,-.10),Vector3(0,-.16,-.10)]:
-		var candidate=underarm_contact_exact(avatar,shoulder,contact+chest_basis*shift,chest_basis,offset,backhand)
+		var candidate=underarm_contact_exact(avatar,shoulder,contact+chest_basis*shift,chest_basis,offset,backhand,feasibility_only)
 		candidate.cost+=shift.length()*45
 		if candidate.valid:return candidate
 	return best
 
-static func underarm_contact_exact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool) -> Dictionary:
+static func underarm_contact_exact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool, feasibility_only: bool = false) -> Dictionary:
 	var upper=measured(avatar,"upperarm_r").distance_to(measured(avatar,"lowerarm_r"))
 	var lower=measured(avatar,"lowerarm_r").distance_to(measured(avatar,"hand_r"))
 	var change=Basis(Vector3.UP,-PI/4 if backhand else FOREHAND_ROLL)
+	var chest_inverse=chest_basis.inverse()
+	var mount=grip_mount_for(avatar,backhand)
+	var hand_to_grip=HAND_GRIP.inverse()*change.inverse()
 	var radial=(contact-shoulder).normalized()
 	var tangent=radial.cross(chest_basis.x).normalized()
 	if tangent.length()<.01:tangent=radial.cross(Vector3.UP).normalized()
@@ -709,25 +719,28 @@ static func underarm_contact_exact(avatar: String, shoulder: Vector3, contact: V
 	var wanted=Vector3.DOWN if backhand else Vector3.UP
 	var best={"axis":radial,"hand":contact-radial*offset,"cost":INF,"basis":Basis(Quaternion(Vector3.UP,radial)),"valid":false,"offset":offset}
 	var chest=shoulder-chest_basis*(measured(avatar,"upperarm_r")-measured(avatar,"spine_03"))
-	var contact_side=(chest_basis.inverse()*(contact-chest)).x
+	var contact_side=(chest_inverse*(contact-chest)).x
 	if (not backhand and contact_side<.10) or (backhand and contact_side>-.10):return best
-	var compact=(chest_basis.inverse()*(contact-shoulder)).z>-.45 or contact.y>shoulder.y+.05
+	var compact=(chest_inverse*(contact-shoulder)).z>-.45 or contact.y>shoulder.y+.05
+	var relaxed_reach=sqrt(upper*upper+lower*lower+2*upper*lower*cos(NET_MIN_FLEX))
+	var shaft_reach_squared=pow(relaxed_reach+mount.length()+.00001,2)
 	for tilt in [.10,.25,.40,.55,.70,.85,1.0,1.15,1.30,1.45,1.60,1.80,2.0,2.2]:
 		for i in range(24):
 			var angle=TAU*i/24.0
 			var shaft=(radial*cos(tilt)+(tangent*cos(angle)+across*sin(angle))*sin(tilt)).normalized()
+			# No grip rotation can bring a handle this far away into arm reach.
+			if (contact-shaft*offset).distance_squared_to(shoulder)>shaft_reach_squared:continue
 			var palm=wanted-shaft*wanted.dot(shaft)
 			if palm.length()<.55:continue
 			palm=palm.normalized()
 			for roll in [-.3,0.0,.3]:
 				var y=-palm.rotated(shaft,roll)
 				var hand_frame=Basis(y.cross(-shaft),y,-shaft).orthonormalized()
-				var grip=hand_frame*HAND_GRIP.inverse()*change.inverse()
-				var hand=contact-shaft*offset-grip*grip_mount_for(avatar,backhand)
+				var grip=hand_frame*hand_to_grip
+				var hand=contact-shaft*offset-grip*mount
 				var distance=shoulder.distance_to(hand)
-				var relaxed_reach=sqrt(upper*upper+lower*lower+2*upper*lower*cos(NET_MIN_FLEX))
 				if distance>relaxed_reach or distance<(.27 if backhand or compact else .34):continue
-				var local_hand=chest_basis.inverse()*(hand-shoulder)
+				var local_hand=chest_inverse*(hand-shoulder)
 				if local_hand.z>(.035 if backhand else (-.10 if compact else -.20)):continue
 				var first_elbow=solve_arm_joint(shoulder,hand,hand-hand_frame.x*lower,upper,lower,chest_basis)
 				var arm_axis=(hand-shoulder).normalized()
@@ -742,20 +755,24 @@ static func underarm_contact_exact(avatar: String, shoulder: Vector3, contact: V
 					var up=(hand_frame.y-forearm*hand_frame.y.dot(forearm)).normalized()
 					var twist=absf(hinge.signed_angle_to(up,forearm))
 					if twist>1.4:continue
+					if feasibility_only:return {"valid":true,"cost":0.0}
 					var cost=(1-wrist)*80+maxf(0,twist-1.4)*40+maxf(0,local_hand.z+.15)*30+maxf(0,.3-distance)*20+absf(roll)*2
 					if contact.y<shoulder.y+.1:cost+=maxf(0,local_hand.y+.15)*80
 					cost+=maxf(0,hand.y-maxf(contact.y+.18,shoulder.y-.40))*240
 					if cost<float(best.cost):best={"axis":shaft,"hand":hand,"elbow":elbow,"basis":grip,"offset":offset,"cost":cost,"valid":true}
 
-	if not best.valid and offset<RACKET_CENTER+.119:return underarm_contact_exact(avatar,shoulder,contact,chest_basis,minf(offset+.04,RACKET_CENTER+.12),backhand)
+	if not best.valid and offset<RACKET_CENTER+.119:return underarm_contact_exact(avatar,shoulder,contact,chest_basis,minf(offset+.04,RACKET_CENTER+.12),backhand,feasibility_only)
 	return best
 
-static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool, overhead: bool = false, underarm: bool = false, forward_face: bool = false, body_clearance: bool = false) -> Dictionary:
-	if underarm:return underarm_contact(avatar,shoulder,contact,chest_basis,offset,backhand,body_clearance)
+static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector3, chest_basis: Basis, offset: float, backhand: bool, overhead: bool = false, underarm: bool = false, forward_face: bool = false, body_clearance: bool = false, feasibility_only: bool = false) -> Dictionary:
+	if underarm:return underarm_contact(avatar,shoulder,contact,chest_basis,offset,backhand,body_clearance,feasibility_only)
 	# Choose the shaft and wrist together. A shaft aimed straight from shoulder
 	# to shuttle forces the palm perpendicular to the forearm on low returns.
 	var grip_roll=-PI/4 if backhand else FOREHAND_ROLL
 	var grip_change=Basis(Vector3.UP,grip_roll)
+	var chest_inverse=chest_basis.inverse()
+	var mount=grip_mount_for(avatar,backhand)
+	var inverse_change=grip_change.inverse()
 	var radial=(contact-shoulder).normalized()
 	var tangent=chest_basis*Vector3(0,-1,0)
 	tangent=(tangent-radial*tangent.dot(radial)).normalized()
@@ -772,19 +789,23 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 	if overhead:tilts=[.10,.20,.30,.40,.50,.60,.70,.80,.90,1.0,1.10,1.20,1.30,1.40,1.50,1.60]
 	var azimuths=[]
 	var samples=48 if forward_face else (24 if overhead else 8)
+	# Conservative triangle bound, including the solver's 1 mm residual tolerance.
+	# It rejects impossible shafts before ten iterative wrist/elbow solves.
+	var shaft_reach_squared=pow(upper+lower+mount.length()+.00101,2)
 	for i in range(samples):azimuths.append(TAU*i/float(samples))
 	for tilt in tilts:
 		for azimuth in azimuths:
 			var shaft=(radial*cos(tilt)+(tangent*cos(azimuth)+cross_axis*sin(azimuth))*sin(tilt)).normalized()
+			if (contact-shaft*offset).distance_squared_to(shoulder)>shaft_reach_squared:continue
 			var grip=Basis(Quaternion(Vector3.UP,shaft))
-			var hand=contact-shaft*offset-grip*grip_mount_for(avatar,backhand)
+			var hand=contact-shaft*offset-grip*mount
 			for iteration in range(10):
 				var elbow=solve_arm_joint(shoulder,hand,pole,upper,lower,chest_basis)
 				var forearm=(hand-elbow).normalized()
 				var fingers=(forearm-shaft*forearm.dot(shaft)).normalized()
-				if fingers.length()>.01:grip=Basis(shaft.cross(-fingers),shaft,-fingers).orthonormalized()*grip_change.inverse()
-				hand=hand.lerp(contact-shaft*offset-grip*grip_mount_for(avatar,backhand),.55)
-			var residual=hand+grip*grip_mount_for(avatar,backhand)+shaft*offset-contact
+				if fingers.length()>.01:grip=Basis(shaft.cross(-fingers),shaft,-fingers).orthonormalized()*inverse_change
+				hand=hand.lerp(contact-shaft*offset-grip*mount,.55)
+			var residual=hand+grip*mount+shaft*offset-contact
 			if residual.length()>.001:continue
 			if forward_face and absf(grip.z.x)>absf(grip.z.z)+.10:continue
 			# A forehand uses the palm side towards the net. Absolute string-bed
@@ -796,9 +817,9 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 			if distance>upper+lower-.001 or distance<absf(upper-lower)+.005:continue
 			var elbow=solve_arm_joint(shoulder,hand,pole,upper,lower,chest_basis)
 			var forearm=(hand-elbow).normalized()
-			var local_elbow=chest_basis.inverse()*(elbow-shoulder)
+			var local_elbow=chest_inverse*(elbow-shoulder)
 			if body_clearance and not arm_racket_clear(avatar,shoulder,elbow,hand,grip,chest_basis,backhand):continue
-			var local_hand=chest_basis.inverse()*(hand-shoulder)
+			var local_hand=chest_inverse*(hand-shoulder)
 			# A folded hand beside the shoulder may reach the shuttle on paper,
 			# but makes low returns flip their elbow as the player crouches.
 			var posture_cost=0.0
@@ -809,7 +830,7 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 				var prepared_upper=BACKHAND_PREP_UPPER.normalized()
 				var prepared_hinge=prepared_upper.cross(BACKHAND_PREP_LOWER.normalized()).normalized()
 				var transported=Basis(Quaternion(prepared_upper,local_elbow.normalized()))*prepared_hinge
-				if transported.dot(chest_basis.inverse()*hinge)<cos(deg_to_rad(60)):continue
+				if transported.dot(chest_inverse*hinge)<cos(deg_to_rad(60)):continue
 			if overhead and not backhand:
 				# Keep the contact elbow on the same raised, outward branch as
 				# the V-grip preparation, rather than choosing a lower-cost fold
@@ -818,7 +839,7 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 				var preferred_upper=Vector3(1,-.2,0).normalized()
 				var preferred_lower=Vector3(-.5,.51,-.85).normalized()
 				var preferred_hinge=preferred_upper.cross(preferred_lower).normalized()
-				var local_hinge=chest_basis.inverse()*hinge
+				var local_hinge=chest_inverse*hinge
 				var transported_hinge=Basis(Quaternion(preferred_upper,local_upper))*preferred_hinge
 				if transported_hinge.dot(local_hinge)<cos(deg_to_rad(60)):continue
 				posture_cost+=maxf(0,.02-local_elbow.x)*160
@@ -831,6 +852,7 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 			if forward_face and twist>2.5:continue
 			if not high and not backhand:posture_cost+=maxf(0,twist-1.65)*12
 			if backhand and (twist>1.8 or forearm.dot(-hand_frame.z)<cos(deg_to_rad(50)) or (high and hand_frame.x.z>-.1)):continue
+			if feasibility_only:return {"valid":true,"cost":0.0}
 			var cost=(1-forearm.dot(-hand_frame.z))*12+maxf(0,twist-1.3)*(8 if backhand else 2)+maxf(0,local_elbow.z+.03)*3+maxf(0,local_elbow.y-(.25 if high else 0.0))*2+maxf(0,-.05-local_elbow.x)*4
 			cost+=posture_cost
 			if forward_face:
@@ -849,7 +871,7 @@ static func defensive_contact(avatar: String, shoulder: Vector3, contact: Vector
 			if cost<float(best.cost):best={"axis":shaft,"hand":hand,"elbow":elbow,"cost":cost,"basis":grip,"valid":true,"offset":offset,"wrist_dot":forearm.dot(-hand_frame.z)}
 	# A tilted shaft can use the outer string bed without stretching the arm.
 	if not best.valid and offset<RACKET_CENTER+.119:
-		return defensive_contact(avatar,shoulder,contact,chest_basis,minf(offset+.04,RACKET_CENTER+.12),backhand,overhead,underarm,forward_face,body_clearance)
+		return defensive_contact(avatar,shoulder,contact,chest_basis,minf(offset+.04,RACKET_CENTER+.12),backhand,overhead,underarm,forward_face,body_clearance,feasibility_only)
 	if overhead and not backhand and best.valid and float(best.wrist_dot)<cos(deg_to_rad(50)) and offset<RACKET_CENTER+.139:
 		var outer=defensive_contact(avatar,shoulder,contact,chest_basis,minf(offset+.02,RACKET_CENTER+.14),backhand,overhead,underarm,forward_face,body_clearance)
 		if outer.valid and float(outer.cost)<float(best.cost):return outer

@@ -23,7 +23,7 @@ if(process.argv.includes('--service')){
   async function connect(token=''){
     const s=new WebSocket(`ws://127.0.0.1:${port}/ws`);s.queue=[];sockets.push(s);
     s.on('message',r=>s.queue.push(JSON.parse(r)));await once(s,'open');
-    send(s,token?{type:'hello',token}:{type:'register',name:'退出'+require('node:crypto').randomBytes(6).toString('hex'),password:'test-only-pass'});s.profile=await take(s,'profile');return s;
+    send(s,token?{type:'hello',token}:{type:'register',name:'退'+require('node:crypto').randomBytes(3).toString('hex'),password:'test-only-pass'});s.profile=await take(s,'profile');return s;
   }
   async function match(){
     const a=await connect(),b=await connect();send(a,{type:'create'});const room=await take(a,'created');

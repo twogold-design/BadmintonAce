@@ -1,3 +1,2 @@
-// Alibaba Cloud backend: temporary unencrypted endpoint for local-package testing.
-// Replace with the verified WSS endpoint before publishing on an HTTPS platform.
-window.ACE_SERVER = 'ws://121.40.81.89:8766/ws';
+// Verified Alibaba Cloud WSS endpoint for local packages and HTTPS platforms.
+window.ACE_SERVER = 'wss://121.40.81.89/ws';

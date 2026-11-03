@@ -8,6 +8,7 @@ const {connectionInfo, invitation} = require('./links');
 const {allowRequest} = require('./access');
 const {Records} = require('./records');
 const relay = require('./relay');
+const websocketCompression = require('./network-options').compressionOptions(process.env.ACE_WS_COMPRESSION !== '0');
 const isExe = require('node:sea').isSea();
 const home = isExe ? path.dirname(process.execPath) : path.join(__dirname,'..');
 
@@ -16,6 +17,8 @@ const lanOnly = process.env.LAN_ONLY === '1';
 const serveWeb = process.env.SERVE_WEB !== '0';
 // Enable only behind a trusted reverse proxy that overwrites forwarding headers.
 const trustProxy = process.env.TRUST_PROXY === '1';
+// Optional local supervisor channel. Never exposed as an HTTP/GM endpoint.
+const stopRequest = process.env.ACE_STOP_REQUEST || '';
 const root = path.resolve(process.env.WEB_ROOT || path.join(home, 'build', 'web'));
 const records = new Records(path.join(process.env.DATA_DIR || path.join(home,'data'),'rankings.sqlite'));
 const gm = new (require('./gm').GM)(records,process.env.DATA_DIR || path.join(home,'data'),invalidateManagedAccounts);
@@ -31,7 +34,7 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/health') {
     res.writeHead(200, {'Content-Type':'application/json'});
-    return res.end(JSON.stringify({ok:true, app:'badminton-ace', version:5, transport:'websocket-relay',lanOnly, rooms:rooms.size}));
+    return res.end(JSON.stringify({ok:true, app:'badminton-ace', version:5, transport:'websocket-relay',lanOnly, rooms:rooms.size,trafficGuardControl:Boolean(stopRequest)}));
   }
   if (!serveWeb) {
     res.writeHead(req.url==='/'?200:404,{'Content-Type':'application/json; charset=utf-8'});
@@ -52,16 +55,24 @@ const server = http.createServer((req, res) => {
     stream.pipe(res);
   });
 });
-const wss = new WebSocketServer({server, path:'/ws', maxPayload:32768, perMessageDeflate:false,
+const wss = new WebSocketServer({server, path:'/ws', maxPayload:32768, perMessageDeflate:websocketCompression,
   verifyClient:({req})=>allowRequest(req,lanOnly)});
-function send(ws, data) { if (ws && ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 1048576) ws.send(JSON.stringify(data)); }
+function send(ws, data, deduplicate=false) {
+  if(!ws||ws.readyState!==WebSocket.OPEN||ws.bufferedAmount>=1048576)return false;
+  const raw=JSON.stringify(data),cacheable=['rooms','leaders','account_stats'].includes(data.type);
+  if(cacheable&&deduplicate&&ws.lastLists?.get(data.type)===raw)return true;
+  // Credentials/session tokens never enter the outgoing compression dictionary.
+  ws.send(raw,{compress:cacheable});
+  if(cacheable){ws.lastLists ||= new Map();ws.lastLists.set(data.type,raw);}
+  return true;
+}
 function error(ws, message, action='') { send(ws, {type:'error', message,action}); }
 function accountBusy(ws){return [...wss.clients].some(c=>c!==ws&&c.profile?.id===ws.profile.id&&(c.code||c.challenge));}
 function broadcastScores(){
   const players=records.leaders();
   for(const client of wss.clients)if(client.profile){
-    send(client,{type:'account_stats',...records.summary(client.profile.id)});
-    if(client.watchLeaders)send(client,{type:'leaders',players,self:client.profile.id});
+    send(client,{type:'account_stats',...records.summary(client.profile.id)},true);
+    if(client.watchLeaders)send(client,{type:'leaders',players,self:client.profile.id},true);
   }
 }
 function roomList() {
@@ -69,7 +80,7 @@ function roomList() {
 }
 function broadcastRooms() {
   const listing=roomList();
-  for(const client of wss.clients)if(client.profile&&client.watchRooms)send(client,listing);
+  for(const client of wss.clients)if(client.profile&&client.watchRooms)send(client,listing,true);
 }
 function invalidateManagedAccounts(ids){
   const affected=new Set(ids);
@@ -96,7 +107,8 @@ function start(room,code,type='paired'){
   room.live=type==='rematch';room.ready=new Set();room.pairedAt=Date.now();
   room.stateSeq=-1;room.moveSeq=-1;
   relay.clearPending(room.host);relay.clearPending(room.guest);
-  for(const [role,ws] of [['host',room.host],['guest',room.guest]])send(ws,{type,role,code,goal:room.goal,match:room.match});
+  const names=[room.host.profile.name,room.guest.profile.name];
+  for(const [role,ws] of [['host',room.host],['guest',room.guest]])send(ws,{type,role,code,goal:room.goal,match:room.match,names});
 }
 function leave(ws) {
   relay.clearPending(ws);
@@ -130,7 +142,7 @@ function leave(ws) {
 wss.on('connection', (ws, req) => {
   ws.connectionInfo = connectionInfo(req, port, lanOnly ? '' : process.env.PUBLIC_URL);
   ws.lanAddress = ws.connectionInfo.scope==='lan' ? ws.connectionInfo.base.replace(/^http:/,'ws:').replace(/^https:/,'wss:')+'/ws' : '';
-  send(ws,{type:'connection',version:5,transport:'websocket-relay',...ws.connectionInfo,lanOnly,lanAddress:ws.lanAddress});
+  send(ws,{type:'connection',version:5,transport:'websocket-relay',compression:ws.extensions.includes('permessage-deflate')?'permessage-deflate':'none',...ws.connectionInfo,lanOnly,lanAddress:ws.lanAddress});
   ws.alive = true;
   ws.count = 0;
   ws.window = Date.now();
@@ -244,7 +256,7 @@ wss.on('connection', (ws, req) => {
     if(d.type==='relay_ready'){
       if(d.match!==room.match||room.live)return;
       room.ready.add(ws.profile.id);
-      if(room.ready.size===2){room.live=true;for(const [role,client] of [['host',room.host],['guest',room.guest]])send(client,{type:'start',role,code:ws.code,goal:11,match:room.match});}
+      if(room.ready.size===2){room.live=true;const names=[room.host.profile.name,room.guest.profile.name];for(const [role,client] of [['host',room.host],['guest',room.guest]])send(client,{type:'start',role,code:ws.code,goal:11,match:room.match,names});}
       return;
     }
     if(d.type==='relay_failed'){
@@ -308,7 +320,19 @@ server.listen(port, '0.0.0.0', () => {
   for (const entries of Object.values(require('node:os').networkInterfaces()))
     for (const a of entries || []) if (a.family === 'IPv4' && !a.internal) console.log(`LAN connection: ws://${a.address}:${port}/ws (open the extracted index.html locally)`);
 });
-server.on('error',e=>{console.error('服务器启动失败：',e.message);clearInterval(heartbeat);records.close();process.exitCode=1;});
-function shutdown() { shuttingDown=true;clearInterval(heartbeat); for (const ws of wss.clients) ws.close(1001,'Server shutdown'); wss.close(); server.close(()=>records.close()); }
+const stopWatcher = stopRequest ? setInterval(() => {
+  if(fs.existsSync(stopRequest)){console.log('Local traffic supervisor requested shutdown.');shutdown();}
+},250) : null;
+stopWatcher?.unref();
+server.on('error',e=>{console.error('服务器启动失败：',e.message);clearInterval(heartbeat);clearInterval(stopWatcher);records.close();process.exitCode=1;});
+function shutdown() {
+  if(shuttingDown)return;
+  shuttingDown=true;clearInterval(heartbeat);clearInterval(stopWatcher);
+  for (const ws of wss.clients) ws.close(1001,'Server shutdown');
+  wss.close();server.close(()=>records.close());server.closeAllConnections();
+  // A slow or uncooperative peer must not keep a traffic-stopped backend alive.
+  const deadline=setTimeout(()=>{for(const ws of wss.clients)ws.terminate();},1500);
+  deadline.unref();
+}
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);

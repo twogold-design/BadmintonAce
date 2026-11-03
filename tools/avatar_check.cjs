@@ -21,12 +21,12 @@ const {enterAccount,challenge}=require('./account_helpers.cjs');
    await p.screenshot({path:path.join(root,'artifacts','avatar-selection.png')});
    await p.mouse.click(avatar==='female'?970:470,450);
    await p.waitForFunction(a=>window.badmintonState.screen==='menu'&&window.badmintonState.selected_avatar===a,avatar);
-   await challenge(p,avatar==='female'?4:0);
+   await challenge(p,avatar==='female'?0:4);
    await p.waitForFunction(a=>window.badmintonState.screen==='game'&&window.badmintonState.avatars.every(v=>v===a),avatar);
    await p.reload();await enterAccount(p);await p.waitForFunction(()=>window.badmintonState?.screen==='menu');
   }
   await p.reload();await enterAccount(p);await p.waitForFunction(()=>window.badmintonState?.screen==='menu'&&window.badmintonState.selected_avatar==='female');
-  await challenge(p,4);await p.waitForFunction(()=>window.badmintonState.screen==='game'&&window.badmintonState.avatars.every(v=>v==='female'));
+  await challenge(p,0);await p.waitForFunction(()=>window.badmintonState.screen==='game'&&window.badmintonState.avatars.every(v=>v==='female'));
   await p.waitForTimeout(300);
   await p.keyboard.down('l');await p.waitForTimeout(150);await p.keyboard.up('l');
   await p.waitForFunction(()=>window.badmintonState.hits>=2);

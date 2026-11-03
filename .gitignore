@@ -13,6 +13,7 @@ BadmintonAce-Server.exe
 BadmintonAce-Server-GM.exe
 gm-key.txt
 deploy/cloud.env
+wss-state/
 
 # Local secrets and player databases
 .env

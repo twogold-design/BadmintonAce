@@ -45,3 +45,6 @@ $manifest = [ordered]@{ game='谁是羽毛球高手'; godot='4.7.2'; entry='inde
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath 'dist\manifest.json' -Encoding UTF8
 Write-Output ('WEB: {0:N2} MB / ZIP: {1:N2} MB / LIMIT: 200 MB' -f ($totalBytes/1000000),($zipBytes/1000000))
 Write-Output $zipPath
+
+# Publish a timestamped backend only when its deployment inputs have changed.
+& (Join-Path $PSScriptRoot 'build_protected_server.ps1') -IfChanged

@@ -94,6 +94,7 @@ var net_ball = Vector3.ZERO
 var diagnostic_tick = 0.0
 var invite_url = ""
 var connection_scope = "local"
+var net_compression = "none"
 var net_connect_elapsed = 0.0
 var lan_address = ""
 var lan_only = true
@@ -102,6 +103,7 @@ var room_password = ""
 var nickname_input: LineEdit
 var password_input: LineEdit
 var net_match_id = ""
+var net_player_names: Array = ["", ""] # Same host/guest order as score and players.
 var result_recorded = false
 var net_match_closed = false
 var net_preparing = false
@@ -282,7 +284,6 @@ func _build_menu() -> void:
 	_button("在线对战  1 v 1", Rect2(82, 634, 210, 54), _show_lobby)
 	_button("自由练习", Rect2(306, 634, 150, 54), func(): start_game("practice"))
 	_button("操作指南", Rect2(82, 711, 174, 46), _show_help)
-	_button("难度 · " + ["入门", "进阶", "高手"][difficulty], Rect2(270, 711, 186, 46), _cycle_difficulty)
 	_button("声音 · " + ("开" if sound_on else "关"), Rect2(1213, 38, 154, 42), _toggle_sound)
 	if offline_mode:
 		_button("登录账号",Rect2(82,770,174,42),_show_login)
@@ -307,15 +308,20 @@ func _configure_server() -> void:
 	if OS.has_feature("web"):
 		server_address = str(JavaScriptBridge.eval("window.ACE_SERVER || (location.protocol === 'file:' ? 'ws://127.0.0.1:8766/ws' : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws')"))
 
-func _show_login(message: String = "首次登录自动创建账号，请记住你的账号和密码。") -> void:
+func _show_login(message: String = "首次登录自动创建账号，账号 2–7 字，请记住账号和密码。") -> void:
 	_disconnect()
 	offline_mode = false
 	screen = "login"
 	paused = false
 	net_status = message
 	_clear_ui()
-	login_name = _input_box(Rect2(500,330,440,54),nickname,"账号（2–16 字）")
+	login_name = _input_box(Rect2(500,330,440,54),nickname,"账号（新账号 2–7 字）")
+	# Keep existing longer accounts accessible on every device; the server
+	# rejects creating any new account above seven Unicode characters.
 	login_name.max_length = 16
+	login_name.text_changed.connect(func(value):
+		if value.strip_edges().length()>7: net_status = "新账号最多 7 字；已有长账号仍可登录。"
+		elif net_status=="新账号最多 7 字；已有长账号仍可登录。": net_status = "首次登录自动创建账号，账号 2–7 字。")
 	login_password = _input_box(Rect2(500,430,440,54),"","密码（至少 3 位）")
 	login_password.secret = true
 	login_password.max_length = 128
@@ -342,6 +348,9 @@ func _submit_auth(action: String) -> void:
 	if login_name.text.strip_edges().length()<2 or login_password.text.length()<3:
 		net_status = "账号至少 2 字，密码至少 3 位。"
 		return
+	if action=="register" and login_name.text.strip_edges().length()>7:
+		net_status = "新账号最多 7 字。"
+		return
 	nickname = login_name.text.strip_edges()
 	auth_request = {"type":action,"name":login_name.text.strip_edges(),"password":login_password.text}
 	_connect_service()
@@ -350,7 +359,7 @@ func _connect_service() -> void:
 	_configure_server()
 	net_connected = false
 	net_connect_elapsed = 0.0
-	net_status = "正在登录…"
+	net_status = "正在验证已有账号（新账号最多 7 字）…" if nickname.length()>7 else "正在登录…"
 	login_button.disabled = true
 	socket = WebSocketPeer.new()
 	if socket.connect_to_url(server_address) != OK: _show_login("无法连接服务器，请确认联机服务已启动。")
@@ -461,10 +470,9 @@ func _draw_challenges() -> void:
 		var y = 245+(i/4)*235
 		var earned = completed_opponents.has(str(row.id))
 		_box(Rect2(x,y,300,205),PANEL,TEAL if earned else LINE,20)
-		_text(Vector2(x+24,y+38),"%02d / %s" % [i+1,"男单挑战" if row.avatar=="male" else "女单挑战"],15,MUTED)
+		_text(Vector2(x+24,y+38),"%02d" % [i+1],15,MUTED)
 		_text(Vector2(x+24,y+94),str(row.name),32)
 		_text(Vector2(x+24,y+143),"单机挑战 · 不计积分" if offline_mode else ("已获 5 积分 · 可再次挑战" if earned else "首次获胜  +5 积分"),17,TEAL if earned else LIME)
-		_text(Vector2(x+24,y+179),"AI 对手  /  " + ["入门","进阶","高手"][difficulty],14,MUTED)
 	_center(Vector2(810,817),net_status,16,LIME)
 
 func _avatar_id(value: Variant) -> String:
@@ -1518,9 +1526,10 @@ func _draw_player(i: int) -> void:
 	var color = LIME if i == 0 else CORAL
 	if arena==null: ATHLETE.paint(self,p,i,ground,s,clock_time)
 	if screen == "game":
-		_center(Vector2(ground.x,minf(826,ground.y+25*s)),"P1" if i == 0 else ("P2" if mode in ["local","online"] else "AI"),12,color)
-		if _can_hit(i) and phase == "rally": draw_arc(ground,27*s,0,TAU,36,Color(color,.7),2,true)
-		if _can_hit(i) and phase=="rally" and last_hit!=i:
+		_center(Vector2(ground.x,minf(826,ground.y+25*s)),"P1" if i == 0 else ("P2" if mode in ["local","online"] else _player_display_name(1)),12,color)
+		var ready_to_hit = phase=="rally" and _can_hit(i)
+		if ready_to_hit: draw_arc(ground,27*s,0,TAU,36,Color(color,.7),2,true)
+		if ready_to_hit and last_hit!=i:
 			if i == (1 if mode == "online" and net_role == "guest" else 0):
 				_center(Vector2(ground.x,minf(828,ground.y+43*s)),"松键击球",13,LIME)
 		if p.charge >= 0:
@@ -1585,7 +1594,20 @@ func _draw_menu() -> void:
 
 
 
-	_text(Vector2(84,829), "键盘操作  ·  AI / 在线对战  ·  11 分一局",15,MUTED)
+	_text(Vector2(84,829), "键盘操作  ·  单机挑战 / 在线对战  ·  11 分一局",15,MUTED)
+
+func _receive_match_names(packet: Dictionary) -> void:
+	var names = packet.get("names",[])
+	if names is Array and names.size()==2:
+		for i in range(2):
+			if names[i] is String: net_player_names[i] = str(names[i]).strip_edges().left(16)
+
+func _player_display_name(i: int) -> String:
+	if mode=="online":
+		if not str(net_player_names[i]).is_empty(): return str(net_player_names[i])
+		return nickname if i==_local_player_index() and not nickname.is_empty() else ("你" if i==_local_player_index() else "对手")
+	if i==1: return str(_opponent(challenge_opponent).get("name","对手")) if mode=="ai" else ("陪练" if mode=="practice" else "PLAYER 02")
+	return "单机玩家" if offline_mode else (nickname if not nickname.is_empty() else "PLAYER 01")
 
 func _draw_hud() -> void:
 	var area=scene_rect()
@@ -1593,9 +1615,10 @@ func _draw_hud() -> void:
 	for i in range(2):
 		var row=left+Vector2(0,i*31)
 		_box(Rect2(row,Vector2(240,28)),Color("234841"),Color("395a53"),3)
-		var player_label = "单机玩家" if offline_mode else (nickname if i==0 and not nickname.is_empty() else "PLAYER 01")
-		if i==1: player_label = str(_opponent(challenge_opponent).get("name","ACE BOT")) if mode=="ai" else "PLAYER 02"
-		_text(row+Vector2(9,20),player_label,16)
+		var player_label = _player_display_name(i)
+		var label_size = 16
+		while label_size>10 and FONT.get_string_size(player_label,HORIZONTAL_ALIGNMENT_LEFT,-1,label_size).x>205: label_size-=1
+		draw_string(FONT,row+Vector2(9,20),player_label,HORIZONTAL_ALIGNMENT_LEFT,205,label_size,WHITE)
 		_box(Rect2(row+Vector2(244,0),Vector2(34,28)),WHITE,WHITE,3)
 		_text(row+Vector2(251,21),str(score[i]),19,Color("1c272a"))
 		if server==i:draw_circle(row+Vector2(225,14),3,LIME)
@@ -1630,11 +1653,13 @@ func _key(pos: Vector2, label: String) -> void:
 	_center(pos+Vector2(17.5,24),label,17,LIME)
 
 func _draw_point() -> void:
-	_box(Rect2(494,343,472,125),Color(.04,.10,.13,.95),LINE,16)
+	var area = scene_rect()
+	var top = Vector2(area.get_center().x,area.position.y+24)
+	_box(Rect2(top-Vector2(200,0),Vector2(400,88)),Color(.04,.10,.13,.95),LINE,12)
 	var name = "P1" if mode == "online" else "你"
-	if last_winner == 1: name = "P2" if mode == "online" else "AI"
-	_center(Vector2(730,392),"回合结束" if mode == "practice" else name + " 得分",29,LIME if last_winner == 0 else CORAL)
-	_center(Vector2(730,432),last_reason + "  /  " + str(rally) + " 拍回合",17,MUTED)
+	if last_winner == 1: name = "P2" if mode == "online" else _player_display_name(1)
+	_center(top+Vector2(0,35),"回合结束" if mode == "practice" else name + " 得分",26,LIME if last_winner == 0 else CORAL)
+	_center(top+Vector2(0,66),last_reason + "  /  " + str(rally) + " 拍回合",16,MUTED)
 
 func _draw_pause() -> void:
 	draw_rect(scene_rect(),Color(0.015,.04,.06,.83))
@@ -1712,7 +1737,7 @@ func _show_lobby() -> void:
 	board_items.item_activated.connect(func(_index): _join_selected_room())
 	join_room_button = _button("加入选中房间",Rect2(110,674,510,52),_join_selected_room,true)
 	_button("刷新列表",Rect2(640,674,230,52),func(): _request_lobby_data("list"))
-	nickname_input = _input_box(Rect2(950,310,350,48),nickname,"你的昵称（最多 16 字）")
+	nickname_input = _input_box(Rect2(950,310,350,48),nickname,"你的账号昵称")
 	nickname_input.max_length = 16
 	nickname_input.editable = false
 	password_input = _input_box(Rect2(950,414,350,48),room_password,"留空为公开房")
@@ -1982,6 +2007,7 @@ func _network_process(dt: float) -> void:
 		state.winner = winner
 		state.match_closed = net_match_closed
 		state.account = nickname
+		state.scoreboard_names = [_player_display_name(0),_player_display_name(1)]
 		state.offline = offline_mode
 		state.account_id = account_id
 		state.points = account_points
@@ -1995,6 +2021,7 @@ func _network_process(dt: float) -> void:
 		state.challenge_award = challenge_award
 		state.peer_ready = peer.ready
 		state.transport = "websocket-relay"
+		state.compression = net_compression
 		state.peer_sent = peer.sent_packets
 		state.peer_received = peer.received_packets
 		state.peer_sent_bytes = peer.sent_bytes
@@ -2064,19 +2091,28 @@ func _network_process(dt: float) -> void:
 	if net_role == "guest" and not paused: remote_view.render(self,dt)
 	if net_role == "guest":
 		move_refresh += dt
-		var move = Vector2.ZERO if paused or net_preparing else Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+		var move = Vector2.ZERO if paused or net_preparing or phase=="end" else Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
 		_send_movement(move)
 		return
-	var interval = 0.5 if paused else (1.0/30.0 if phase=="rally" else .1)
+	var interval = _snapshot_interval()
 	if net_tick < interval: return
 	# Preserve the fractional interval without sending a burst after a slow frame.
 	net_tick = fmod(net_tick,interval)
 	if net_role == "host": _send_snapshot()
 
+func _snapshot_interval() -> float:
+	# Frozen states need only a safety refresh; hits, points and final results
+	# still force an immediate snapshot from their event handlers.
+	if paused or phase=="end": return 2.0
+	if net_preparing: return 1.0
+	return 1.0/30.0 if phase=="rally" else .1
+
 func _send_movement(move: Vector2) -> void:
 	# Changed directions (including release) send on this frame, independently
-	# of the snapshot clock. Refresh at 10 Hz repairs a lost movement/stop packet.
-	if move!=last_sent_move or move_refresh>=.1:
+	# of the snapshot clock. Reliable WebSocket preserves changes; infrequent
+	# refreshes still repair replaceable commands skipped during congestion.
+	var refresh = 2.0 if move==Vector2.ZERO else .5
+	if move!=last_sent_move or move_refresh>=refresh:
 		if _net_send({"type":"input","action":"move","x":-move.x,"y":-move.y}):
 			last_sent_move = move
 			move_refresh = 0
@@ -2153,6 +2189,7 @@ func _receive_packet(d: Dictionary) -> void:
 				_show_login("服务器版本较旧，请更新并重启新版服务器。")
 				return
 			connection_scope = str(d.get("scope","local"))
+			net_compression = str(d.get("compression","none"))
 			lan_only = bool(d.get("lanOnly",false))
 			lan_address = str(d.get("lanAddress",""))
 		"created":
@@ -2174,6 +2211,8 @@ func _receive_packet(d: Dictionary) -> void:
 			_update_room_list()
 		"paired":
 			net_action = ""
+			net_player_names = ["", ""]
+			_receive_match_names(d)
 			net_role = str(d.role)
 			room_code = str(d.code)
 			net_match_id = str(d.match)
@@ -2192,6 +2231,7 @@ func _receive_packet(d: Dictionary) -> void:
 			_logout(str(d.get("message","")),false)
 		"start":
 			net_action = ""
+			_receive_match_names(d)
 			net_status = "已连接对战服务器"
 			net_role = str(d.role)
 			room_code = str(d.code)
@@ -2263,6 +2303,7 @@ func _receive_packet(d: Dictionary) -> void:
 				_sfx("smash" if "杀" in str(d.label) else "hit")
 		"rematch":
 			net_match_id = str(d.match)
+			_receive_match_names(d)
 			result_recorded = false
 			start_game("online",true)
 		"state":

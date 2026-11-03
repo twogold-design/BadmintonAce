@@ -7,7 +7,7 @@ async function connect(){const s=new WebSocket(url);s.queue=[];sockets.push(s);s
 (async()=>{
  const a=await connect();send(a,{type:'create'});assert.match((await take(a,'error')).message,/登录/);
  send(a,{type:'hello',name:'cannot-bypass-login'});assert.match((await take(a,'error')).message,/登录/);
- const name='积分'+require('node:crypto').randomBytes(5).toString('hex');
+ const name='分'+require('node:crypto').randomBytes(3).toString('hex');
  send(a,{type:'register',name,password:'points-test-pass'});const profile=await take(a,'profile');
  send(a,{type:'leaders'});assert.ok((await take(a,'leaders')).players.some(p=>p.id===profile.id));
  const b=await connect();send(b,{type:'login',name,password:'wrong-password'});await take(b,'error');

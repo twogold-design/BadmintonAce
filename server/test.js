@@ -1,20 +1,23 @@
 const assert=require('node:assert/strict');
 const {WebSocket}=require('ws');
 const url=process.env.TEST_URL||'ws://127.0.0.1:8765/ws';
-async function connect(){const s=await new Promise((resolve,reject)=>{const s=new WebSocket(url);s.queue=[];s.on('message',(r,binary)=>s.queue.push(binary?{type:'binary',data:r}:JSON.parse(r)));s.once('open',()=>resolve(s));s.once('error',reject)});send(s,{type:'register',name:'测试'+require('node:crypto').randomBytes(6).toString('hex'),password:'test-only-pass'});s.profile=await take(s,'profile');return s;}
+async function connect(compression=true){const s=await new Promise((resolve,reject)=>{const s=new WebSocket(url,{perMessageDeflate:compression});s.queue=[];s.on('message',(r,binary)=>s.queue.push(binary?{type:'binary',data:r}:JSON.parse(r)));s.once('open',()=>resolve(s));s.once('error',reject)});send(s,{type:'register',name:'测'+require('node:crypto').randomBytes(3).toString('hex'),password:'test-only-pass'});s.profile=await take(s,'profile');return s;}
 async function take(s,type,predicate=()=>true){const end=Date.now()+5000;while(Date.now()<end){const i=s.queue.findIndex(m=>m.type===type&&predicate(m));if(i>=0)return s.queue.splice(i,1)[0];await new Promise(r=>setTimeout(r,10));}throw Error('Missing '+type);}
 function send(s,d){s.send(JSON.stringify({protocol:5,...d}));}
 (async()=>{
- const a=await connect(),b=await connect(),c=await connect();
+ const a=await connect(),b=await connect(),c=await connect(false);
+ if(process.env.ACE_WS_COMPRESSION!=='0'){assert.ok(a.extensions.includes('permessage-deflate'));assert.ok(b.extensions.includes('permessage-deflate'));}
+ assert.equal(c.extensions,'','Legacy clients can decline compression');
  send(c,{type:'list'});assert.deepEqual((await take(c,'rooms')).rooms,[]);
  send(b,{type:'join',code:'ZZZZZZ'});assert.match((await take(b,'error')).message,/不存在/);
  send(a,{type:'create',goal:21,password:'test-pass'});const room=await take(a,'created');assert.match(room.code,/^[0-9A-F]{6}$/);
  const listing=await take(c,'rooms');assert.equal(listing.rooms.find(r=>r.code===room.code).locked,true);assert.ok(!JSON.stringify(listing).includes('test-pass'));
  assert.ok((await take(a,'rooms')).rooms.some(r=>r.code===room.code),'Host sees their own idle room');
  send(b,{type:'join',code:room.code,password:'bad'});assert.match((await take(b,'error')).message,/密码/);
- send(b,{type:'join',code:room.code,password:'test-pass'});const pair=await take(a,'paired');await take(b,'paired');
+ send(b,{type:'join',code:room.code,password:'test-pass',names:['fake host','fake guest']});const pair=await take(a,'paired');const guestPair=await take(b,'paired');
+ const names=[a.profile.name,b.profile.name];assert.deepEqual(pair.names,names);assert.deepEqual(guestPair.names,names,'Names must come from authenticated profiles in score order');
  send(a,{type:'relay_ready',match:pair.match});send(b,{type:'relay_ready',match:pair.match});
- const match=await take(a,'start');assert.equal(match.role,'host');assert.equal((await take(b,'start')).goal,11);
+ const match=await take(a,'start');assert.equal(match.role,'host');const guestStart=await take(b,'start');assert.equal(guestStart.goal,11);assert.deepEqual(match.names,names);assert.deepEqual(guestStart.names,names);
  assert.deepEqual((await take(c,'rooms')).rooms,[],'Full room disappears without refreshing');
  send(c,{type:'list'});assert.deepEqual((await take(c,'rooms')).rooms,[],'List endpoint excludes full rooms');
  send(c,{type:'join',code:room.code});assert.match((await take(c,'error')).message,/已满/);
@@ -40,7 +43,7 @@ function send(s,d){s.send(JSON.stringify({protocol:5,...d}));}
  send(b,{type:'finish',match:match.match,score:[11,9]});await take(a,'recorded');await take(b,'recorded');
  send(a,{type:'finish',match:match.match,score:[11,9]});await take(a,'recorded');
  send(a,{type:'leaders'});const leaders=await take(a,'leaders');const winner=leaders.players.find(p=>p.id===a.profile.id);assert.equal(winner.wins,1);assert.equal(winner.games,1);assert.equal(winner.points,10);
- send(a,{type:'rematch'});const again=await take(b,'rematch');assert.notEqual(again.match,match.match);await take(a,'rematch');
+ send(a,{type:'rematch'});const again=await take(b,'rematch');assert.notEqual(again.match,match.match);assert.deepEqual(again.names,names);assert.deepEqual((await take(a,'rematch')).names,names);
  forward(b,{type:'pause',value:true});a.send(frame);await new Promise(r=>setTimeout(r,80));
  assert.ok(!a.queue.some(m=>m.type==='relay')&&!b.queue.some(m=>m.type==='binary'),'Previous-match packets cannot cross into a rematch');
  b.close();const forfeited=await take(a,'match_result');assert.equal(forfeited.reason,'forfeit');assert.equal(forfeited.winner,0);assert.equal(forfeited.recorded,true);

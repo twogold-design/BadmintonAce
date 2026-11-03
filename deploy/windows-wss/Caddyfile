@@ -1,0 +1,24 @@
+{
+	admin off
+	persist_config off
+	# IP-address clients omit SNI; the cloud VM sees its private NIC address.
+	default_sni 121.40.81.89
+}
+
+# Replace this IP if the cloud instance receives a new public address.
+https://121.40.81.89 {
+	tls {
+		issuer acme https://acme-v02.api.letsencrypt.org/directory {
+			profile shortlived
+		}
+	}
+
+	# Publish only gameplay and health, never GM or game assets.
+	@backend path /ws /health
+	handle @backend {
+		reverse_proxy 127.0.0.1:8766
+	}
+	handle {
+		respond "Badminton Ace backend: use /health or /ws" 404
+	}
+}

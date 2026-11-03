@@ -30,7 +30,7 @@ const root=path.resolve(__dirname,'..');
   await page.screenshot({path:path.join(root,'artifacts/offline-home.png')});
   await page.mouse.click(200,585);await wait(()=>window.badmintonState.screen==='challenges');
   await page.screenshot({path:path.join(root,'artifacts/offline-challenges.png')});
-  await page.mouse.click(230,575);await wait(()=>window.badmintonState.screen==='game');
+  await page.mouse.click(230,340);await wait(()=>window.badmintonState.screen==='game');
   assert.equal(await page.evaluate(()=>window.badmintonState.avatars[1]),'female');
   await page.waitForTimeout(400);await page.keyboard.press('l');await wait(()=>window.badmintonState.hits>=2);
   await home();await page.mouse.click(380,660);await wait(()=>window.badmintonState.screen==='game'&&window.badmintonState.mode==='practice');

@@ -17,7 +17,7 @@ async function test(){
  assert.equal(controlPacket({type:'pause',match:'old',value:true},false,match),null);
  assert.equal(controlPacket({type:'logged_out',match},true,match),null);
  assert.deepEqual(controlPacket({type:'pause',match,value:true,recipient:'outsider'},false,match),{type:'pause',match,value:true});
- const delivered=[],ws={readyState:1,bufferedAmount:5000,send:(raw,options)=>delivered.push({raw,options}),close(code){this.closed=code;}};
+ const delivered=[],ws={readyState:1,bufferedAmount:1500,send:(raw,options)=>delivered.push({raw,options}),close(code){this.closed=code;}};
  for(let i=0;i<100;i++)forward(ws,snapshot(match,i),true,'state');
  assert.equal(ws.relayPending.size,1);assert.equal(delivered.length,0);
  ws.bufferedAmount=0;await new Promise(r=>setTimeout(r,30));

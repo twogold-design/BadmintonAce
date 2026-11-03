@@ -28,7 +28,7 @@ func send(packet: Dictionary) -> bool:
 	if not ready or socket == null or socket.get_ready_state()!=WebSocketPeer.STATE_OPEN: return false
 	var realtime = (packet.type=="state" and packet.get("phase","")!="end") or (packet.type=="input" and packet.get("action","")=="move")
 	# Skip replaceable positions under congestion; never queue seconds of old play.
-	if realtime and socket.get_current_outbound_buffered_amount()>4096:
+	if realtime and socket.get_current_outbound_buffered_amount()>1024:
 		skipped_realtime += 1
 		return false
 	if socket.get_current_outbound_buffered_amount()>262144:

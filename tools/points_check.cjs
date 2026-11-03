@@ -3,7 +3,7 @@ const {spawn}=require('node:child_process');
 const crypto=require('node:crypto'),path=require('node:path'),fs=require('node:fs'),assert=require('node:assert/strict');
 const {fill}=require('./account_helpers.cjs');
 const root=path.resolve(__dirname,'..');
-const name='points'+crypto.randomBytes(5).toString('hex');
+const name='p'+crypto.randomBytes(3).toString('hex');
 (async()=>{
  await new Promise((resolve,reject)=>{
   const child=spawn(process.env.GODOT_BIN||'D:/tools/Godot-4.7.2/Godot_v4.7.2-stable_win64_console.exe',['--headless','--path',root,'--script','tools/test_points.gd'],{cwd:root,env:{...process.env,ACE_POINTS_ACCOUNT:name},stdio:'inherit',windowsHide:true});
@@ -25,7 +25,7 @@ const name='points'+crypto.randomBytes(5).toString('hex');
   await page.screenshot({path:path.join(root,'artifacts','points-home.png')});
   await page.mouse.click(200,585);await page.waitForFunction(()=>window.badmintonState?.screen==='challenges');
   await page.screenshot({path:path.join(root,'artifacts','challenge-selection.png')});
-  await page.mouse.click(230,575);await page.waitForFunction(()=>window.badmintonState?.screen==='game');
+  await page.mouse.click(230,340);await page.waitForFunction(()=>window.badmintonState?.screen==='game');
   assert.equal((await page.evaluate(()=>window.badmintonState)).avatars[1],'female');
   await page.keyboard.press('Escape');await page.waitForFunction(()=>window.badmintonState?.paused);await page.mouse.click(720,645);
   await page.waitForFunction(()=>window.badmintonState?.screen==='menu');

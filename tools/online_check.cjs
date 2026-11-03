@@ -12,7 +12,7 @@ async function wait(p,fn,timeout=15000){const end=Date.now()+timeout;while(Date.
 async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);await p.keyboard.up(key);}
 (async()=>{
  const errors=[];
- const forbidden=[],relayTraffic=[];let binaryFrames=0;
+ const forbidden=[],relayTraffic=[],networkSamples=[],extensions=[];let binaryFrames=0;
  const contexts=[];
  try{
  for(let i=0;i<2;i++)contexts.push(await chromium.launchPersistentContext(path.join(root,'.runtime','online-'+i),{executablePath:process.env.ACE_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,ignoreHTTPSErrors:process.env.ACE_TEST_TLS==='1',viewport:{width:1440,height:900},args:['--no-sandbox','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required','--disable-crash-reporter','--disable-breakpad']}));
@@ -22,8 +22,21 @@ async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);awai
   window.RTCPeerConnection=disabled;window.webkitRTCPeerConnection=disabled;
  });
  const pages=await Promise.all(contexts.map(c=>c.newPage()));
- if(process.env.ACE_ENTRY_URL)for(const page of pages)await page.addInitScript(url=>Object.defineProperty(window,'ACE_SERVER',{get:()=>url.replace(/^http/,'ws')+'/ws',set:()=>{}}),base);
- for(const p of pages)p.on('websocket',ws=>ws.on('framesent',event=>{if(Buffer.isBuffer(event.payload)){binaryFrames++;return;}try{const d=JSON.parse(event.payload);if(['signal','peer_ready'].includes(d.type))forbidden.push(d.type);if(d.type==='relay')relayTraffic.push(d.packet.type);}catch{}}));
+ // Always isolate automated accounts/rooms from the packaged production URL,
+ // including tests served over local HTTP rather than opened as file://.
+ for(const page of pages)await page.addInitScript(url=>Object.defineProperty(window,'ACE_SERVER',{get:()=>url.replace(/^http/,'ws')+'/ws',set:()=>{}}),base);
+ for(const [player,p] of pages.entries()){
+  const cdp=await p.context().newCDPSession(p);await cdp.send('Network.enable');
+  cdp.on('Network.webSocketHandshakeResponseReceived',event=>{for(const [key,value] of Object.entries(event.response.headers))if(key.toLowerCase()==='sec-websocket-extensions')extensions.push(value);});
+  p.on('websocket',ws=>ws.on('framesent',event=>{
+   const binary=Buffer.isBuffer(event.payload);
+   if(binary)binaryFrames++;
+   let relay=false;
+   if(!binary)try{const d=JSON.parse(event.payload);if(['signal','peer_ready'].includes(d.type))forbidden.push(d.type);if(d.type==='relay'){relay=true;relayTraffic.push(d.packet.type);}}catch{}
+   // Capture game traffic only, never login passwords/session tokens.
+   if(process.env.ACE_CAPTURE_NETWORK==='1'&&(binary||relay)&&networkSamples.length<6000)networkSamples.push({player,time:Date.now(),binary,data:Buffer.from(event.payload).toString('base64')});
+  }));
+ }
  for(const [i,p] of pages.entries()){p.on('console',m=>{if(m.type()==='error'){errors.push(i+': '+m.text());console.log('ERROR',i,m.text())}});p.on('pageerror',e=>errors.push(i+': '+e.message));}
  await Promise.all(pages.map(p=>p.goto(process.env.ACE_ENTRY_URL||base)));
  await Promise.all(pages.map(p=>enterAccount(p,'联机')));
@@ -70,6 +83,9 @@ async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);awai
  await Promise.all(pages.map(p=>wait(p,s=>s.screen==='game')));
  const preparationStarted=Date.now();
  const readyStates=await Promise.all(pages.map(p=>wait(p,s=>s.preparing&&s.prepare_seconds>8)));
+ const expectedNames=[readyStates[0].account,readyStates[1].account];
+ assert.deepEqual(readyStates[0].scoreboard_names,expectedNames,'Host scoreboard uses authenticated names in score order');
+ assert.deepEqual(readyStates[1].scoreboard_names,expectedNames,'Guest scoreboard keeps each name attached to the correct score');
  await a.screenshot({path:path.join(output,'online-countdown.png')});
  await Promise.all(pages.map(p=>tap(p,'l')));
  await b.keyboard.down('d');await sleep(600);await b.keyboard.up('d');
@@ -149,6 +165,8 @@ async function tap(p,key,ms=150){await p.keyboard.down(key);await sleep(ms);awai
  assert.equal(await a.evaluate(()=>window.rtcAttempts),0,'No direct peer connection was attempted');
  assert.equal(sa.transport,'websocket-relay');assert.equal(sb.transport,'websocket-relay');
  assert.equal(errors.length,0,errors.join('\n'));
+ if(process.env.ACE_EXPECT_COMPRESSION==='1')assert.ok(extensions.length>=2&&extensions.every(value=>value.includes('permessage-deflate')),'Both browser clients negotiate lossless compression');
+ if(process.env.ACE_CAPTURE_NETWORK==='1')fs.writeFileSync(path.join(output,'network-samples.json'),JSON.stringify({extensions,samples:networkSamples}));
  fs.writeFileSync(path.join(output,'online-test.json'),JSON.stringify({ok:true,transport:'websocket-relay',webrtc_disabled:true,binary_frames:binaryFrames,relayed_controls:[...new Set(relayTraffic)],room:host.room,score:point.score,stall_recovery:{lag_ms:recovered.remote_lag_ms,catchups:recovered.remote_catchups,coalesced:recovered.coalesced_states},checks:['male/female menu selection','selection persists after reload','female host / male guest synchronized','create','browse idle rooms and join','nonpublic share blocked','serve','remote movement','guest return','P2 own baseline camera','P2 local-direction movement','buffered ball and velocity rendering','state sync','score sync','pause/resume','1.8-second guest stall recovery','landing replaces obsolete flight','disconnect'],errors},null,2));
  console.log('PASS: two real Godot Web clients');
  }finally{await Promise.all(contexts.map(c=>c.close()));}
