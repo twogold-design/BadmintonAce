@@ -1,0 +1,326 @@
+{
+  "changes": [
+    "Remove the 25 ms smash physics freeze (two 60 Hz ticks).",
+    "Reuse unchanged impact solves at high refresh rates.",
+    "Use typed arithmetic in pose-search loops and retain only improving collision-free underarm candidates."
+  ],
+  "native_fixed_cases": {
+    "before": {
+      "accepted": [
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true
+      ],
+      "cases": 48,
+      "impact_ms_max": 11.21,
+      "impact_ms_mean": 8.61488888888889,
+      "reach_ms_max": 13.54,
+      "reach_ms_mean": 2.61664583333333,
+      "reach_ms_p95": 12.834
+    },
+    "after": {
+      "accepted": [
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true
+      ],
+      "cases": 48,
+      "impact_ms_max": 13.312,
+      "impact_ms_mean": 7.15819444444445,
+      "reach_ms_max": 9.439,
+      "reach_ms_mean": 1.83572916666667,
+      "reach_ms_p95": 9.176
+    },
+    "reach_results_equal": true
+  },
+  "native_180_seconds": [
+    {
+      "animation_max": 10.949,
+      "animation_p95": 0.342,
+      "hits": 17,
+      "memory": 63922577,
+      "nodes": 308.0,
+      "objects": 2255.0,
+      "physics_max": 9.379,
+      "physics_p95": 0.072,
+      "points": 3,
+      "seconds": 30
+    },
+    {
+      "animation_max": 12.339,
+      "animation_p95": 0.342,
+      "hits": 37,
+      "memory": 66498445,
+      "nodes": 308.0,
+      "objects": 2262.0,
+      "physics_max": 7.103,
+      "physics_p95": 0.073,
+      "points": 7,
+      "seconds": 60
+    },
+    {
+      "animation_max": 10.425,
+      "animation_p95": 0.34,
+      "hits": 53,
+      "memory": 66488921,
+      "nodes": 308.0,
+      "objects": 2262.0,
+      "physics_max": 9.613,
+      "physics_p95": 0.067,
+      "points": 12,
+      "seconds": 90
+    },
+    {
+      "animation_max": 10.063,
+      "animation_p95": 0.336,
+      "hits": 71,
+      "memory": 66488037,
+      "nodes": 308.0,
+      "objects": 2262.0,
+      "physics_max": 9.729,
+      "physics_p95": 0.069,
+      "points": 16,
+      "seconds": 120
+    },
+    {
+      "animation_max": 10.27,
+      "animation_p95": 0.349,
+      "hits": 89,
+      "memory": 66489721,
+      "nodes": 308.0,
+      "objects": 2262.0,
+      "physics_max": 5.294,
+      "physics_p95": 0.077,
+      "points": 20,
+      "seconds": 150
+    },
+    {
+      "animation_max": 14.616,
+      "animation_p95": 0.357,
+      "hits": 22,
+      "memory": 66563081,
+      "nodes": 308.0,
+      "objects": 2283.0,
+      "physics_max": 8.462,
+      "physics_p95": 0.078,
+      "points": 2,
+      "seconds": 180
+    }
+  ],
+  "web_90_seconds": {
+    "before": {
+      "batches": [
+        {
+          "seconds": 30,
+          "frames": 1362,
+          "mean_ms": 22.0132892804699,
+          "p95_ms": 50,
+          "max_ms": 66.70000000000437,
+          "over_50ms": 23,
+          "last": {
+            "at": 29985.500000286105,
+            "ms": 16.60000000000582,
+            "hits": 17,
+            "score": [
+              5,
+              0
+            ],
+            "phase": "rally"
+          }
+        },
+        {
+          "seconds": 60,
+          "frames": 1363,
+          "mean_ms": 22.009317681584736,
+          "p95_ms": 50,
+          "max_ms": 100,
+          "over_50ms": 31,
+          "last": {
+            "at": 59984.2000002861,
+            "ms": 16.69999999999709,
+            "hits": 33,
+            "score": [
+              5,
+              2
+            ],
+            "phase": "rally"
+          }
+        },
+        {
+          "seconds": 90,
+          "frames": 1362,
+          "mean_ms": 22.037812041116005,
+          "p95_ms": 50,
+          "max_ms": 66.69999999999709,
+          "over_50ms": 30,
+          "last": {
+            "at": 89999.7000002861,
+            "ms": 16.69999999999709,
+            "hits": 46,
+            "score": [
+              5,
+              7
+            ],
+            "phase": "point"
+          }
+        }
+      ],
+      "matches": 0,
+      "errors": [],
+      "connections": []
+    },
+    "after": {
+      "batches": [
+        {
+          "seconds": 30,
+          "frames": 1326,
+          "mean_ms": 22.623453996983407,
+          "p95_ms": 50,
+          "max_ms": 83.40000000000146,
+          "over_50ms": 36,
+          "last": {
+            "at": 29993.500000190732,
+            "ms": 50,
+            "hits": 11,
+            "score": [
+              1,
+              5
+            ],
+            "phase": "rally"
+          }
+        },
+        {
+          "seconds": 60,
+          "frames": 1314,
+          "mean_ms": 22.830060882800606,
+          "p95_ms": 50,
+          "max_ms": 83.39999999999418,
+          "over_50ms": 43,
+          "last": {
+            "at": 59992.20000019073,
+            "ms": 50,
+            "hits": 27,
+            "score": [
+              5,
+              6
+            ],
+            "phase": "rally"
+          }
+        },
+        {
+          "seconds": 90,
+          "frames": 1310,
+          "mean_ms": 22.89977099236642,
+          "p95_ms": 50,
+          "max_ms": 66.80000000000291,
+          "over_50ms": 38,
+          "last": {
+            "at": 89990.90000019074,
+            "ms": 16.60000000000582,
+            "hits": 2,
+            "score": [
+              0,
+              0
+            ],
+            "phase": "rally"
+          }
+        }
+      ],
+      "matches": 1,
+      "errors": [],
+      "connections": []
+    }
+  },
+  "validation": "All existing Godot validation cases passed, plus stroke cache / continuous smash and network schedule checks. Updated stale motion test from 100 ms to existing 500 ms movement refresh. Web build passed; server release skipped because backend inputs are unchanged.",
+  "limitations": "Browser rallies use random placement and differ between runs. Overall browser mean frame time did not improve; measurements support reducing contact computation and removing deliberate hit-stop, not a general FPS increase or reproduction of progressive slowdown."
+}

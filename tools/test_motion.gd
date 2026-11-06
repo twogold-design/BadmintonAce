@@ -131,7 +131,10 @@ func _run() -> void:
 	check(probe.sent.size()==1,"Unchanged movement is not sent each render frame")
 	probe.move_refresh = .1
 	probe._send_movement(Vector2.RIGHT)
-	check(probe.sent.size()==2,"Lost movement repairs at 100 ms refresh")
+	check(probe.sent.size()==1,"Reliable movement does not need a 100 ms duplicate")
+	probe.move_refresh = .5
+	probe._send_movement(Vector2.RIGHT)
+	check(probe.sent.size()==2,"Unchanged movement refreshes at 500 ms")
 	probe.writable = false
 	probe._send_movement(Vector2.ZERO)
 	check(probe.last_sent_move==Vector2.RIGHT,"Congestion does not mark an unsent stop as delivered")

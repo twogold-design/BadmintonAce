@@ -60,7 +60,6 @@ var toast_time = 0.0
 var effects: Array[Dictionary] = []
 var particles: Array[Dictionary] = []
 var shake = 0.0
-var freeze = 0.0
 var center_x = 730.0
 var court_scale = 1.0
 var court_offset = Vector2.ZERO
@@ -546,7 +545,6 @@ func start_game(new_mode: String, prepare_online: bool = false) -> void:
 	net_match_closed = false
 	result_reason = ""
 	remote_view.reset()
-	freeze = 0.0
 	shake = 0.0
 	effects.clear()
 	particles.clear()
@@ -733,9 +731,6 @@ func _physics_process(delta: float) -> void:
 		p.vel.y += 190 * dt
 	particles = particles.filter(func(p): return p.life > 0)
 	if mode == "online" and net_role == "guest" and screen == "game": return
-	if freeze > 0:
-		freeze -= dt
-		return
 	if screen == "menu":
 		_demo(dt)
 		return
@@ -1070,7 +1065,6 @@ func _try_hit(i: int, shot: int) -> bool:
 	_sfx("smash" if smash else "hit")
 	if smash:
 		shake = 2.3
-		freeze = .025
 	if mode == "practice" and i == 0:
 		toast = "回到中场准备下一拍" if quality > .7 else "有点勉强！再靠近落点一些"
 		toast_time = 1.8
