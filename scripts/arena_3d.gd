@@ -11,6 +11,7 @@ var shuttle: Node3D
 var view_key = ""
 var camera_focus_y = .45
 var game_ref: Node2D
+var crowd: Node3D
 
 func setup(game: Node2D) -> void:
 	game_ref = game
@@ -34,6 +35,7 @@ func setup(game: Node2D) -> void:
 	light.rotation_degrees = Vector3(-55,-28,0)
 	light.light_color = Color("fff2da")
 	light.light_energy = .85
+	light.light_cull_mask = 1
 	light.shadow_enabled = true
 	light.directional_shadow_max_distance = 38
 	world.add_child(light)
@@ -41,7 +43,23 @@ func setup(game: Node2D) -> void:
 	fill.rotation_degrees = Vector3(-32,148,0)
 	fill.light_color = Color("b9dcea")
 	fill.light_energy = .22
+	fill.light_cull_mask = 1
 	world.add_child(fill)
+	# Audience uses a separate light layer so the playing court stays bright.
+	var crowd_key = DirectionalLight3D.new()
+	crowd_key.name = "CrowdKey"
+	crowd_key.rotation = light.rotation
+	crowd_key.light_color = Color("dce4ec")
+	crowd_key.light_energy = .34
+	crowd_key.light_cull_mask = 2
+	world.add_child(crowd_key)
+	var crowd_fill = DirectionalLight3D.new()
+	crowd_fill.name = "CrowdFill"
+	crowd_fill.rotation = fill.rotation
+	crowd_fill.light_color = fill.light_color
+	crowd_fill.light_energy = .07
+	crowd_fill.light_cull_mask = 2
+	world.add_child(crowd_fill)
 	camera = Camera3D.new()
 	camera.near = .05
 	camera.far = 100
@@ -50,6 +68,9 @@ func setup(game: Node2D) -> void:
 	court = Node3D.new()
 	world.add_child(court)
 	build_court()
+	crowd = preload("res://scripts/crowd_3d.gd").new()
+	court.add_child(crowd)
+	crowd.setup()
 	for i in range(2):
 		var athlete = ATHLETE_3D.new()
 		world.add_child(athlete)
@@ -95,8 +116,11 @@ func build_court() -> void:
 	box(court,Vector3(0,1.55,0),Vector3(6.4,.035,.025),line)
 	# Restrained 3D arena furniture, outside the playable court.
 	var seats = ATHLETE_3D.material(Color("171923"))
-	for z in [-10.1,10.1]:
-		for row in range(3): box(court,Vector3(0,.25+row*.28,z+signf(z)*row*.45),Vector3(9,.25,.38),seats)
+	for side in [-1,1]:
+		for row in range(2):
+			var height = .15+row*.48
+			box(court,Vector3(0,height*.5-.01,side*(10.25+row*1.05)),Vector3(9,height,1.0),seats).layers = 2
+			box(court,Vector3(side*(6.9+row*1.05),height*.5-.01,0),Vector3(1.0,height,13.5),seats).layers = 2
 	# Sponsor perimeter outside the run-off area. Text faces the playing court.
 	for side in [-1,1]:
 		for k in range(6):
@@ -110,8 +134,8 @@ func build_court() -> void:
 	for side in [-1,1]:
 		floor_word(Vector3(side*4.1,-.006,4.2*side),0 if side<0 else PI,"ACE  ARENA")
 	# Dark arena walls retain a lit court and a restrained competition backdrop.
-	back_walls.append(box(court,Vector3(0,3,-11),Vector3(28,6,.2),ATHLETE_3D.material(Color("0d0e14"))))
-	back_walls.append(box(court,Vector3(0,3,11),Vector3(28,6,.2),ATHLETE_3D.material(Color("0d0e14"))))
+	back_walls.append(box(court,Vector3(0,3,-14),Vector3(28,6,.2),ATHLETE_3D.material(Color("0d0e14"))))
+	back_walls.append(box(court,Vector3(0,3,14),Vector3(28,6,.2),ATHLETE_3D.material(Color("0d0e14"))))
 
 func event_label(parent: Node3D, caption: String, at: Vector3, pixel: float = .0046) -> Label3D:
 	var label = Label3D.new()
@@ -245,6 +269,7 @@ func update_rally_camera(game: Node2D, dt: float) -> void:
 
 func sync(game: Node2D, dt: float = 1.0/60) -> void:
 	configure_view(game)
+	crowd.sync(game,dt)
 	update_rally_camera(game,dt)
 	var active = game.screen in ["loading","menu","game","avatars"]
 	render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED

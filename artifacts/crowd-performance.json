@@ -1,0 +1,14 @@
+{
+  "note": "Local stationary camera sample; browser and low-end hardware performance may differ.",
+  "renderer": "Native OpenGL / RTX 3060 Ti / 1440x900 / vsync disabled",
+  "with_crowd": {
+    "draw_calls": 493.0,
+    "median_frame_ms": 1.111,
+    "p95_frame_ms": 1.528
+  },
+  "without": {
+    "draw_calls": 477.0,
+    "median_frame_ms": 0.978,
+    "p95_frame_ms": 1.297
+  }
+}
