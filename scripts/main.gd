@@ -1691,9 +1691,8 @@ func _draw_point() -> void:
 	var area = scene_rect()
 	var top = Vector2(area.get_center().x,area.position.y+24)
 	_box(Rect2(top-Vector2(200,0),Vector2(400,88)),Color(.04,.10,.13,.95),LINE,12)
-	var name = "P1" if mode == "online" else "你"
-	if last_winner == 1: name = "P2" if mode == "online" else _player_display_name(1)
-	_center(top+Vector2(0,35),"回合结束" if mode == "practice" else name + " 得分",26,LIME if last_winner == 0 else CORAL)
+	var name = _player_display_name(last_winner)
+	_center_fitted(top+Vector2(0,35),"回合结束" if mode == "practice" else name + " 得分",360,26,LIME if last_winner == 0 else CORAL)
 	_center(top+Vector2(0,66),last_reason + "  /  " + str(rally) + " 拍回合",16,MUTED)
 
 func _draw_pause() -> void:
@@ -1707,11 +1706,12 @@ func _draw_result() -> void:
 	_box(Rect2(410,232,620,510),PANEL,LINE,24)
 	_center(Vector2(720,280),"MATCH COMPLETE",14,LIME)
 	var label = "你就是羽毛球高手！" if winner == 0 else "好球，再挑战一次！"
-	if mode == "online": label = "P" + str(winner+1) + " 赢得比赛！"
+	if mode == "online": label = _player_display_name(winner) + " 赢得比赛！"
 	if result_reason == "forfeit": label = "对手退出，你获胜！" if winner == _local_player_index() else "提前退出，本局判负"
-	_center(Vector2(720,339),label,34)
+	_center_fitted(Vector2(720,339),label,560,34)
 	_center(Vector2(720,423),str(score[0]) + "  :  " + str(score[1]),62,LIME)
-	_center(Vector2(720,480),"退出时比分 · 本局按退出判负结算" if result_reason == "forfeit" else "最长回合  " + str(longest_rally) + " 拍    ·    P1 甜区  " + str(perfect_hits) + " 次",18)
+	# These counters belong to player index 0 on both host and guest.
+	_center_fitted(Vector2(720,480),"退出时比分 · 本局按退出判负结算" if result_reason == "forfeit" else "最长回合  " + str(longest_rally) + " 拍    ·    " + _player_display_name(0) + " 甜区  " + str(perfect_hits) + " 次",560,18)
 	_center(Vector2(720,521),"比赛时长  %02d:%02d" % [int(match_time)/60, int(match_time)%60],16,MUTED)
 	if net_match_closed:
 		_center(Vector2(720,573),("胜利 +10 积分 · 已保存" if winner==_local_player_index() else "本局 +0 积分 · 已保存") if result_recorded else "积分保存失败，请联系主机管理员",15,LIME if result_recorded else CORAL)
@@ -1721,7 +1721,12 @@ func _draw_result() -> void:
 		_center(Vector2(720,573),challenge_status,15,LIME)
 	elif mode == "online":
 		_center(Vector2(720,573),("胜利 +10 积分 · 已保存" if winner==_local_player_index() else "本局 +0 积分 · 已保存") if result_recorded else "正在等待双方结算…",15,LIME)
-	else: _center(Vector2(720,573),"P1 球路  高远 %d  /  吊球 %d  /  杀抽 %d  /  挑球 %d" % shots_count,15,MUTED)
+	else: _center_fitted(Vector2(720,573),_player_display_name(0) + (" 球路  高远 %d  /  吊球 %d  /  杀抽 %d  /  挑球 %d" % shots_count),560,15,MUTED)
+
+func _center_fitted(pos: Vector2, text: String, max_width: float, size: int, color: Color = WHITE) -> void:
+	while size > 10 and (FONT_BOLD if size >= 28 else FONT).get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x > max_width:
+		size -= 1
+	_center(pos,text,size,color)
 
 func _draw_help() -> void:
 	_text(Vector2(80,172),"把每一拍，打得有想法。",38)
