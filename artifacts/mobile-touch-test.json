@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "viewport": [
+    844,
+    390
+  ],
+  "device_scale": 2,
+  "offline_file_entry": true,
+  "virtual_keyboard": {
+    "tag": "INPUT",
+    "type": "text"
+  },
+  "checks": [
+    "multi-touch move plus charge",
+    "release serves",
+    "cancel clears without firing",
+    "pause/resume",
+    "portrait rotation pauses",
+    "P2 screen-relative movement",
+    "P2 cancellation reaches host",
+    "667px layout bounds"
+  ],
+  "errors": [],
+  "actual_phone_hardware_tested": false,
+  "scope": "Chrome mobile touch emulation; local file entry, real Godot Web build, isolated server, desktop/mobile pairing. Physical iOS/Android testing still needed."
+}

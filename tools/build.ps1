@@ -9,7 +9,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Godot export failed' }
 $htmlPath = Join-Path $projectRoot 'build\web\index.html'
 $html = [IO.File]::ReadAllText($htmlPath)
 $html = $html.Replace('<html lang="en">','<html lang="zh-CN">')
-$html = $html.Replace('<script src="index.js"></script>','<script src="config.js"></script><script src="local-loader.js"></script><script src="index.js"></script>')
+$html = $html.Replace('<script src="index.js"></script>','<script src="config.js"></script><script src="mobile-shell.js"></script><script src="local-loader.js"></script><script src="index.js"></script>')
 $html = $html.Replace('(function () {', '(async function () {')
 $html = $html.Replace('const missing = Engine.getMissingFeatures({', 'setStatusMode(''progress''); try { await window.ACE_LOCAL_READY; } catch (error) { displayFailureNotice(error); return; }' + [Environment]::NewLine + 'const missing = Engine.getMissingFeatures({')
 if (-not $html.Contains("setStatusMode('hidden');")) { throw 'Loading completion hook changed; review the scene readiness gate.' }
@@ -30,6 +30,7 @@ $html = $html.Replace('</head>', $css + '</head>')
 [IO.File]::WriteAllText($htmlPath,$html,[Text.UTF8Encoding]::new($false))
 # Keep the root launcher; commit this Web export so fresh checkouts can play.
 Copy-Item -LiteralPath 'tools\web-config.js' -Destination 'build\web\config.js' -Force
+Copy-Item -LiteralPath 'tools\mobile-shell.js' -Destination 'build\web\mobile-shell.js' -Force
 Copy-Item -LiteralPath 'assets\athletes\ATHLETE-LICENSE.txt' -Destination 'build\web\ATHLETE-LICENSE.txt' -Force
 Copy-Item -LiteralPath 'assets\FONT-LICENSE.txt' -Destination 'build\web\FONT-LICENSE.txt' -Force
 Copy-Item -LiteralPath 'docs\比赛提交说明.txt' -Destination 'build\web\README.txt' -Force

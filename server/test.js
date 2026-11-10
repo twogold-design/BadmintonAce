@@ -24,6 +24,7 @@ function send(s,d){s.send(JSON.stringify({protocol:5,...d}));}
  const forward=(s,packet)=>send(s,{type:'relay',packet:{match:match.match,...packet}});
  forward(b,{type:'input',action:'move',seq:1,x:1,y:-1});
  assert.equal((await take(a,'relay')).packet.action,'move');
+ forward(b,{type:'input',action:'cancel_shot'});assert.equal((await take(a,'relay')).packet.action,'cancel_shot','Cancelled phone touch is relayed without synthesizing a shot');
  forward(b,{type:'pause',value:true});assert.equal((await take(a,'relay')).packet.value,true);
  forward(a,{type:'prepare',remaining:8});assert.equal((await take(b,'relay')).packet.remaining,8);
  forward(a,{type:'appearance',avatar:'female'});assert.equal((await take(b,'relay')).packet.avatar,'female');

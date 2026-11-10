@@ -45,7 +45,7 @@ function controlPacket(packet, host, match) {
         return {...out,seq:packet.seq,x:Math.max(-1,Math.min(1,packet.x)),y:Math.max(-1,Math.min(1,packet.y))};
       }
       if (packet.action === 'shot' && Number.isInteger(packet.shot) && packet.shot >= 0 && packet.shot <= 3 && typeof packet.pressed === 'boolean') return {...out,shot:packet.shot,pressed:packet.pressed};
-      return ['jump','dash'].includes(packet.action) ? out : null;
+      return ['jump','dash','cancel_shot'].includes(packet.action) ? out : null;
     case 'pause': return typeof packet.value === 'boolean' ? {...out,value:packet.value} : null;
     case 'appearance': return ['male','female'].includes(packet.avatar) ? {...out,avatar:packet.avatar} : null;
     case 'prepare': return host && finite(packet.remaining) && packet.remaining >= 0 && packet.remaining <= 10 ? {...out,remaining:packet.remaining} : null;

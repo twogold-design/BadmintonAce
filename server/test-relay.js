@@ -13,6 +13,8 @@ async function test(){
  const reason=Buffer.from(frame);reason.writeUInt32LE(10000,112);assert.equal(snapshotInfo(reason),null);
  const touch=Buffer.from(frame);touch[237]=1;assert.equal(snapshotInfo(touch),null);
  assert.equal(controlPacket({type:'input',match,action:'jump'},true,match),null);
+ assert.deepEqual(controlPacket({type:'input',match,action:'cancel_shot'},false,match),{type:'input',match,action:'cancel_shot'});
+ assert.equal(controlPacket({type:'input',match,action:'cancel_shot'},true,match),null,'Only guest controls the remote player');
  assert.equal(controlPacket({type:'input',match,action:'move',seq:1,x:NaN,y:0},false,match),null);
  assert.equal(controlPacket({type:'pause',match:'old',value:true},false,match),null);
  assert.equal(controlPacket({type:'logged_out',match},true,match),null);

@@ -145,6 +145,7 @@ var net_input_seq = 0
 var received_input_seq = -1
 var last_sent_move = Vector2(99,99)
 var move_refresh = 0.0
+var touch_controls: Node2D
 
 func _ready() -> void:
 	peer.opened.connect(func(): _net_send({"type":"relay_ready","match":net_match_id}))
@@ -157,6 +158,8 @@ func _ready() -> void:
 	FONT_BOLD.variation_opentype = {0x77676874:750.0}
 	RenderingServer.set_default_clear_color(INK)
 	ui = Control.new()
+	# Layout is scaled below; rasterize controls at their final pixel size.
+	ui.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(ui)
 	_make_audio()
@@ -165,6 +168,12 @@ func _ready() -> void:
 	arena = ARENA_3D.new()
 	add_child(arena)
 	arena.setup(self)
+	var touch_layer = CanvasLayer.new()
+	touch_layer.layer = 20
+	add_child(touch_layer)
+	touch_controls = preload("res://scripts/touch_controls.gd").new()
+	touch_layer.add_child(touch_controls)
+	touch_controls.setup(self)
 	_configure_server()
 	var identities = ConfigFile.new()
 	identities.load("user://identities.cfg")
@@ -228,6 +237,7 @@ func _reset_players() -> void:
 		FOOTWORK.reset(players.back())
 
 func _clear_ui() -> void:
+	if touch_controls!=null: touch_controls.reset()
 	home_leaders_panel = null
 	room_exit_panel = null
 	for child in ui.get_children():
@@ -324,9 +334,13 @@ func _show_login(message: String = "首次登录自动创建账号，账号 2–
 	login_password = _input_box(Rect2(500,430,440,54),"","密码（至少 3 位）")
 	login_password.secret = true
 	login_password.max_length = 128
+	# Keep the login form readable inside a small website preview.
+	login_name.add_theme_font_size_override("font_size",24)
+	login_password.add_theme_font_size_override("font_size",24)
 	login_password.text_submitted.connect(func(_value): _submit_auth("login"))
 	login_button = _button("登录",Rect2(500,530,440,54),func(): _submit_auth("login"),true)
-	_button("单机游玩",Rect2(500,602,440,54),_enter_offline)
+	login_button.add_theme_font_size_override("font_size",24)
+	_button("单机游玩",Rect2(500,602,440,54),_enter_offline).add_theme_font_size_override("font_size",24)
 
 func _enter_offline() -> void:
 	_disconnect()
@@ -568,6 +582,7 @@ func start_game(new_mode: String, prepare_online: bool = false) -> void:
 
 func _build_match_ui() -> void:
 	_clear_ui()
+	if touch_controls!=null and touch_controls.enabled: return
 	var pause_button = _button("Ⅱ 暂停", Rect2(1308,24,108,42), _pause_menu)
 	pause_button.set_meta("corner_button",true)
 
@@ -675,7 +690,28 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if (i == 0 and code == KEY_SPACE) or (i == 1 and code == KEY_ENTER): _jump(i)
 			if code == KEY_SHIFT and ((i == 0 and event.location != KEY_LOCATION_RIGHT) or (i == 1 and event.location == KEY_LOCATION_RIGHT)): _dash(i)
 
+func _local_movement() -> Vector2:
+	var keyboard = Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+	return (keyboard+(touch_controls.movement if touch_controls!=null else Vector2.ZERO)).limit_length(1)
+
+func _touch_action(action: String, pressed: bool) -> void:
+	var keys = {"net":KEY_J,"smash":KEY_K,"clear":KEY_L,"jump":KEY_SPACE,"dash":KEY_SHIFT}
+	if not keys.has(action): return
+	# Both devices use the exact same stroke buffering, charge and jump path.
+	var event = InputEventKey.new()
+	event.physical_keycode = keys[action]
+	event.pressed = pressed
+	_unhandled_key_input(event)
+
+func _cancel_touch_shot() -> void:
+	if mode=="online" and net_role=="guest":
+		_net_send({"type":"input","action":"cancel_shot"})
+	elif not players.is_empty():
+		players[0].charge = -1
+		players[0].buffer = 0.0
+
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and touch_controls!=null: touch_controls.reset()
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and screen == "game" and not test_mode:
 		_pause_menu()
 
@@ -807,7 +843,7 @@ func _update_player(i: int, dt: float, is_ai: bool) -> void:
 		elif p.dash <= 0: p.aim = Vector2.ZERO
 	else:
 		if i == 0:
-			movement = Vector2(float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)), float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
+			movement = _local_movement()
 		else:
 			movement = Vector2(float(Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_LEFT)), float(Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_UP)))
 		if movement.length() > 0: p.aim = movement.normalized()
@@ -1332,11 +1368,11 @@ func _draw() -> void:
 	elif screen == "login":
 		_box(Rect2(440,210,560,550),PANEL,LINE,24)
 		_center(Vector2(720,270),"登录你的球员账号",34)
-		_text(Vector2(500,317),"账号",16,MUTED)
-		_text(Vector2(500,416),"密码",16,MUTED)
-		_center(Vector2(720,710),"单机无需账号 · 登录后可参与积分与在线对战",16,MUTED)
-		_center(Vector2(720,742),"新账号首次登录时自动创建",15,MUTED)
-		_center(Vector2(720,805),net_status,16,LIME)
+		_text(Vector2(500,317),"账号",24,MUTED)
+		_text(Vector2(500,416),"密码",24,MUTED)
+		_center(Vector2(720,710),"单机无需账号 · 登录后可参与积分与在线对战",22,MUTED)
+		_center(Vector2(720,742),"新账号首次登录时自动创建",22,MUTED)
+		_center(Vector2(720,805),net_status,22,LIME)
 	elif screen == "challenges":
 		_draw_challenges()
 	elif screen == "help":
@@ -1367,7 +1403,8 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO)
 
 func _text(pos: Vector2, text: String, size: int = 20, color: Color = WHITE) -> void:
-	draw_string(FONT_BOLD if size >= 28 else FONT, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+	# draw_set_transform is not included in automatic font oversampling.
+	draw_string(FONT_BOLD if size >= 28 else FONT, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color, 3, TextServer.DIRECTION_AUTO, TextServer.ORIENTATION_HORIZONTAL, interface_scale())
 
 func _center(pos: Vector2, text: String, size: int = 20, color: Color = WHITE) -> void:
 	var w = (FONT_BOLD if size >= 28 else FONT).get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -1604,6 +1641,8 @@ func _player_display_name(i: int) -> String:
 	return "单机玩家" if offline_mode else (nickname if not nickname.is_empty() else "PLAYER 01")
 
 func _draw_hud() -> void:
+	# Touch HUD is drawn in screen pixels with readable phone-sized labels.
+	if touch_controls!=null and touch_controls.enabled: return
 	var area=scene_rect()
 	var left=area.position+Vector2(24,24)
 	for i in range(2):
@@ -1612,7 +1651,7 @@ func _draw_hud() -> void:
 		var player_label = _player_display_name(i)
 		var label_size = 16
 		while label_size>10 and FONT.get_string_size(player_label,HORIZONTAL_ALIGNMENT_LEFT,-1,label_size).x>205: label_size-=1
-		draw_string(FONT,row+Vector2(9,20),player_label,HORIZONTAL_ALIGNMENT_LEFT,205,label_size,WHITE)
+		draw_string(FONT,row+Vector2(9,20),player_label,HORIZONTAL_ALIGNMENT_LEFT,205,label_size,WHITE,3,TextServer.DIRECTION_AUTO,TextServer.ORIENTATION_HORIZONTAL,interface_scale())
 		_box(Rect2(row+Vector2(244,0),Vector2(34,28)),WHITE,WHITE,3)
 		_text(row+Vector2(251,21),str(score[i]),19,Color("1c272a"))
 		if server==i:draw_circle(row+Vector2(225,14),3,LIME)
@@ -1622,12 +1661,14 @@ func _draw_hud() -> void:
 	var local_player=_local_player_index()
 	_text(stamina_at+Vector2(10,19),"P"+str(local_player+1)+"  体力",13)
 	_bar(stamina_at+Vector2(10,31),185,players[local_player].stamina,LIME)
-	_center(Vector2(area.get_center().x,area.end.y-18),"WASD 移动   J 放网 / 吊球   K 杀球 / 平抽   L 高远 / 挑球",13,WHITE)
-	_text(Vector2(area.end.x-490,area.end.y-40),"Space 跳跃   Shift 蹬步   H 轨迹   C 镜头   Esc 暂停",12,MUTED)
+	if touch_controls==null or not touch_controls.enabled:
+		_center(Vector2(area.get_center().x,area.end.y-18),"WASD 移动   J 放网 / 吊球   K 杀球 / 平抽   L 高远 / 挑球",13,WHITE)
+		_text(Vector2(area.end.x-490,area.end.y-40),"Space 跳跃   Shift 蹬步   H 轨迹   C 镜头   Esc 暂停",12,MUTED)
 	if net_preparing:
 		_text(left+Vector2(0,116),"双方准备中",15,LIME)
 	elif phase=="serve":
-		_text(left+Vector2(0,116),"松开 J / L 发球" if server==local_player else "对手准备发球",15,LIME)
+		var serve_tip = "按住并松开「放网」或「高远」发球" if touch_controls!=null and touch_controls.enabled else "松开 J / L 发球"
+		_text(left+Vector2(0,116),serve_tip if server==local_player else "对手准备发球",15,LIME)
 	elif toast_time>0:
 		_text(left+Vector2(0,116),toast,14,LIME)
 
@@ -1691,11 +1732,19 @@ func _draw_help() -> void:
 	_text(Vector2(744,294),"02 / 在线对战",24,CORAL)
 	var left = ["W A S D  移动     ·     方向 + 击球 = 指定落点", "J 放网 / 吊球    K 杀球 / 平抽    L 高远 / 挑球", "Space 跳跃    左 Shift 蹬步救球", "发球：J 网前短发球 / L 高远发球"]
 	var right = ["双方在各自机器上使用同一套 WASD + J K L", "连接同一内网主机，创建房间或查看房间列表。", "双方都在自己的底线视角操作，自己背对镜头。", "比赛结束前退出或断线判负，并计入战绩。"]
+	var mobile = touch_controls!=null and touch_controls.enabled
+	if mobile:
+		left = ["左手拖动摇杆移动；右手选择球路", "放网 / 吊球 · 杀球 / 平抽 · 高远 / 挑球", "按住蓄力，松手击球；可同时移动和起跳", "发球：放网按钮短发球，高远按钮发长球"]
+		right[0] = "手机、平板和电脑可使用同一房间对战。"
+	right[1] = "连接在线服务，创建房间或查看空闲房间。"
 	for i in range(4):
 		_text(Vector2(106,333+i*35),left[i],16,WHITE if i < 2 else MUTED)
 		_text(Vector2(744,333+i*35),right[i],16,WHITE if i < 2 else MUTED)
 	var titles = ["拉开纵深", "打出落差", "抢到高点", "守住网前"]
 	var lines = [["高远球压住底线，争取回位时间。","前场被动时用挑球解围。"],["按住 J：A/D 选左右，W/S 选深浅。","停步保留瞄准；近网自动变为放网。"],["高点 K 杀球；低点自动平抽。","Space 起跳后，接 K 打出跳杀。"],["接球时用蹬步扩大救球范围。","脚下亮环时出手，避免过早挥空。"]]
+	if mobile:
+		lines[1][0] = "蓄力时拖摇杆，改变左右和深浅。"
+		lines[2] = ["杀球按钮：高点击杀，低位平抽。","轻触起跳，再松开杀球按钮。"]
 	for i in range(4):
 		var x = 80+i*318
 		_box(Rect2(x,502,294,193),PANEL,LINE)
@@ -1705,7 +1754,7 @@ func _draw_help() -> void:
 		_text(Vector2(x+20,646),lines[i][1],13,MUTED)
 	_text(Vector2(82,736),"规则：单打内边线，落地得分；下网 / 出界失分。每球得分，赢球方发球，发球左右区随本方分数交替。",16,WHITE)
 	_text(Vector2(82,769),"比赛统一为 11 分制，需领先 2 分，15 分封顶。练习模式不计输赢。",14,MUTED)
-	_text(Vector2(82,807),"短蓄力 0.1–0.5 秒，松键挥拍；提前松键可缓冲接球。H 轨迹 / 落点，C 切换视角。",14,LIME)
+	_text(Vector2(82,807),"横屏操作 · 按住 0.1–0.5 秒后松手击球 · 右上角暂停" if mobile else "短蓄力 0.1–0.5 秒，松键挥拍；提前松键可缓冲接球。H 轨迹 / 落点，C 切换视角。",14,LIME)
 
 # Host-authoritative simulation; a small WebSocket service routes room traffic.
 func _show_lobby() -> void:
@@ -1975,7 +2024,7 @@ func _receive_peer_packet(packet: Dictionary) -> void:
 		return
 	if kind in ["state","effect"] and net_role!="guest": return
 	if kind=="input":
-		if net_role!="host" or not str(packet.get("action","")) in ["move","shot","jump","dash"]: return
+		if net_role!="host" or not str(packet.get("action","")) in ["move","shot","jump","dash","cancel_shot"]: return
 		if packet.action=="move":
 			if int(packet.get("seq",-1))<=received_input_seq: return
 			received_input_seq = int(packet.seq)
@@ -2001,6 +2050,9 @@ func _network_process(dt: float) -> void:
 		state.winner = winner
 		state.match_closed = net_match_closed
 		state.account = nickname
+		state.touch = touch_controls.diagnostics() if touch_controls!=null else {}
+		state.charges = [players[0].charge,players[1].charge]
+		state.jump_loads = [players[0].get("jump_load",0),players[1].get("jump_load",0)]
 		state.scoreboard_names = [_player_display_name(0),_player_display_name(1)]
 		state.offline = offline_mode
 		state.account_id = account_id
@@ -2085,7 +2137,7 @@ func _network_process(dt: float) -> void:
 	if net_role == "guest" and not paused: remote_view.render(self,dt)
 	if net_role == "guest":
 		move_refresh += dt
-		var move = Vector2.ZERO if paused or net_preparing or phase=="end" else Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+		var move = Vector2.ZERO if paused or net_preparing or phase=="end" else _local_movement()
 		_send_movement(move)
 		return
 	var interval = _snapshot_interval()
@@ -2269,6 +2321,9 @@ func _receive_packet(d: Dictionary) -> void:
 			if net_role != "host" or phase == "end" or net_preparing: return
 			var p = players[1]
 			match d.get("action",""):
+				"cancel_shot":
+					p.charge = -1
+					p.buffer = 0.0
 				"move":
 					remote_move = Vector2(clampf(float(d.x),-1,1),clampf(float(d.y),-1,1))
 				"jump":
