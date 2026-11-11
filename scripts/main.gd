@@ -1557,7 +1557,7 @@ func _draw_player(i: int) -> void:
 	var color = LIME if i == 0 else CORAL
 	if arena==null: ATHLETE.paint(self,p,i,ground,s,clock_time)
 	if screen == "game":
-		_center(Vector2(ground.x,minf(826,ground.y+25*s)),"P1" if i == 0 else ("P2" if mode in ["local","online"] else _player_display_name(1)),12,color)
+		_center(Vector2(ground.x,minf(826,ground.y+25*s)),_player_display_name(i),12,color)
 		var ready_to_hit = phase=="rally" and _can_hit(i)
 		if ready_to_hit: draw_arc(ground,27*s,0,TAU,36,Color(color,.7),2,true)
 		if ready_to_hit and last_hit!=i:
@@ -1667,10 +1667,18 @@ func _draw_hud() -> void:
 	if net_preparing:
 		_text(left+Vector2(0,116),"双方准备中",15,LIME)
 	elif phase=="serve":
-		var serve_tip = "按住并松开「放网」或「高远」发球" if touch_controls!=null and touch_controls.enabled else "松开 J / L 发球"
-		_text(left+Vector2(0,116),serve_tip if server==local_player else "对手准备发球",15,LIME)
+		if _show_serve_prompt():
+			var prompt_at = Vector2(area.get_center().x,area.position.y+24)
+			_box(Rect2(prompt_at-Vector2(260,0),Vector2(520,86)),Color(.04,.10,.13,.94),LIME,12)
+			_center(prompt_at+Vector2(0,36),"按住 J / L，松开发球",28,LIME)
+			_center(prompt_at+Vector2(0,65),"轮到你发球 · J 短球 / L 高远球",16,WHITE)
+		elif server!=local_player:
+			_text(left+Vector2(0,116),"对手准备发球",15,LIME)
 	elif toast_time>0:
 		_text(left+Vector2(0,116),toast,14,LIME)
+
+func _show_serve_prompt() -> bool:
+	return screen=="game" and phase=="serve" and server==_local_player_index() and not paused and not net_preparing
 
 func _draw_preparation() -> void:
 	var center = scene_rect().get_center()

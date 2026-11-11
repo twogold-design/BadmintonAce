@@ -144,9 +144,16 @@ func _draw() -> void:
 	draw_rect(Rect2(meter+Vector2(0,7)*unit,Vector2(106,5)*unit),Color(.05,.12,.15,.8))
 	draw_rect(Rect2(meter+Vector2(0,7)*unit,Vector2(106*game.players[game._local_player_index()].stamina/100,5)*unit),lime)
 	var hint = "回合 %d · %d km/h" % [game.rally,game.last_speed]
-	if game.phase=="serve": hint = "按住并松开球种按钮发球" if game.server==game._local_player_index() else "对手准备发球"
+	if game.phase=="serve": hint = "" if game.server==game._local_player_index() else "对手准备发球"
 	if game.net_preparing: hint = "双方准备中"
 	draw_string(game.FONT,Vector2(margin,77*unit),hint,HORIZONTAL_ALIGNMENT_LEFT,-1,roundi(11*unit),white)
+	if game._show_serve_prompt():
+		var prompt_at = Vector2(previous_size.x*.5,62*unit)
+		var prompt_box = Rect2(prompt_at-Vector2(156,0)*unit,Vector2(312,50)*unit)
+		draw_rect(prompt_box,Color(.04,.10,.13,.94))
+		draw_rect(prompt_box,lime,false,unit)
+		_label(prompt_at+Vector2(0,21)*unit,"按住「放网」或「高远」，松开发球",15,lime)
+		_label(prompt_at+Vector2(0,40)*unit,"轮到你发球 · 放网发短球 / 高远发长球",11,white)
 	draw_circle(stick,radius,Color(.035,.10,.13,.58))
 	draw_arc(stick,radius,0,TAU,64,Color(white,.55),1.5*unit,true)
 	draw_line(stick-Vector2(radius*.6,0),stick+Vector2(radius*.6,0),Color(white,.15),unit,true)
