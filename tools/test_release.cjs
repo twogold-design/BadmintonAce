@@ -27,6 +27,7 @@ function run(file){return new Promise((resolve,reject)=>{
   await run('server/test.js');
   await run('server/test-points.js');
   await run('tools/offline_check.cjs');
+  await run('tools/check_match_audio.cjs');
   await run('tools/points_check.cjs');
   await run('tools/online_check.cjs');
   await run('tools/check_local_entry.cjs');

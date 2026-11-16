@@ -129,7 +129,8 @@ func build_court() -> void:
 		for k in range(4):
 			advert_board(Vector3(-3.6+k*2.4,0,side*9.4),PI if side>0 else 0,2.32,k+1)
 	umpire_chair(Vector3(4.5,0,0))
-	for entry in [[Vector3(-4.3,0,.4),-PI/2],[Vector3(6.1,0,-3.2),PI/2],[Vector3(6.1,0,3.9),PI/2]]:
+	# Keep the far line judge on the baseline, clear of the raised umpire in the home camera.
+	for entry in [[Vector3(-4.3,0,.4),-PI/2],[Vector3(6.1,0,-6.7),PI/2],[Vector3(6.1,0,3.9),PI/2]]:
 		seated_official(entry[0],entry[1],0)
 	for side in [-1,1]:
 		floor_word(Vector3(side*4.1,-.006,4.2*side),0 if side<0 else PI,"ACE  ARENA")

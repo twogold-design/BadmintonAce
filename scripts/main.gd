@@ -66,6 +66,17 @@ var court_offset = Vector2.ZERO
 var sound_bank: Dictionary = {}
 var voices: Array[AudioStreamPlayer] = []
 var voice_index = 0
+const CHEER_SAMPLES = [
+	preload("res://assets/audio/SFX_Cheer_a.ogg"),
+	preload("res://assets/audio/SFX_Cheer_b.ogg"),
+	preload("res://assets/audio/SFX_Cheer_c.ogg"),
+]
+const WIN_SAMPLE = preload("res://assets/audio/SFX_Win.ogg")
+const LOSE_SAMPLE = preload("res://assets/audio/SFX_Lose.ogg")
+var cheer_player: AudioStreamPlayer
+var result_player: AudioStreamPlayer
+var cheer_rng = RandomNumberGenerator.new()
+var result_audio_handled = false
 var ai_timer = 0.0
 var shots_count = [0, 0, 0, 0]
 var match_time = 0.0
@@ -274,6 +285,7 @@ func _button(label: String, rect: Rect2, action: Callable, primary: bool = false
 	return b
 
 func _build_menu() -> void:
+	_stop_match_audio()
 	if not authenticated and not offline_mode:
 		_show_login()
 		return
@@ -538,11 +550,14 @@ func _cycle_difficulty() -> void:
 
 func _toggle_sound() -> void:
 	sound_on = not sound_on
+	_sync_match_audio()
 	_save_settings()
 	if screen == "menu": _build_menu()
 	elif paused: _pause_menu()
 
 func start_game(new_mode: String, prepare_online: bool = false) -> void:
+	_stop_match_audio()
+	result_audio_handled = false
 	net_preparing = new_mode=="online" and prepare_online
 	net_prepare_remaining = 10.0 if net_preparing else 0.0
 	net_prepare_sent = -1
@@ -735,6 +750,7 @@ func _process(delta: float) -> void:
 	clock_time += delta
 	_network_process(delta)
 	_update_preparation(delta)
+	_sync_match_audio()
 	if arena!=null: arena.sync(self,delta)
 	queue_redraw()
 
@@ -1219,6 +1235,7 @@ func _point(who: int, reason: String) -> void:
 	else: server = 0
 	stats.points += 1
 	_sfx("point")
+	_score_cheer()
 	_effect(_project(Vector3(ball.x, ball.y, 0)) + Vector2(0,-20), "OUT" if reason == "出界" else "+1", LIME if who == 0 else CORAL, Vector3(ball.x,ball.y,0), -20)
 	for p in players:
 		p.charge = -1
@@ -1233,6 +1250,7 @@ func _match_won(i: int) -> bool:
 
 func _end_match(who: int, submit_result: bool = true) -> void:
 	phase = "end"
+	_result_sfx(who)
 	if mode=="online": net_status = ""
 	winner = who
 	_save_settings()
@@ -1301,6 +1319,14 @@ func _burst(pos: Vector2, color: Color, count: int) -> void:
 		particles.append({"pos":pos, "vel":Vector2.from_angle(randf()*TAU)*randf_range(45,160), "life":randf_range(.2,.5), "color":color})
 
 func _make_audio() -> void:
+	cheer_rng.randomize()
+	cheer_player = AudioStreamPlayer.new()
+	cheer_player.volume_db = -6
+	add_child(cheer_player)
+	result_player = AudioStreamPlayer.new()
+	result_player.stream = WIN_SAMPLE
+	result_player.volume_db = -3
+	add_child(result_player)
 	for key in ["hit", "smash", "point", "click", "swoosh"]:
 		var duration = .16 if key != "point" else .45
 		var rate = 22050
@@ -1333,6 +1359,39 @@ func _sfx(key: String) -> void:
 	v.stream = sound_bank[key]
 	v.play()
 	voice_index += 1
+
+func _score_cheer() -> void:
+	if not sound_on or test_mode or screen != "game" or result_audio_handled: return
+	# Keep long crowd samples independent of the short hit/click voice pool.
+	cheer_player.stream = CHEER_SAMPLES[cheer_rng.randi_range(0, CHEER_SAMPLES.size()-1)]
+	cheer_player.play()
+	_sync_match_audio()
+
+func _result_sfx(who: int) -> void:
+	# Result snapshots and server confirmation can both announce the same result.
+	if result_audio_handled: return
+	result_audio_handled = true
+	if not sound_on or test_mode or screen != "game": return
+	cheer_player.stop()
+	result_player.stream = WIN_SAMPLE if mode == "local" or who == _local_player_index() else LOSE_SAMPLE
+	if result_player.stream_paused: result_player.stream_paused = false
+	result_player.play()
+
+func _stop_match_audio() -> void:
+	for player in [cheer_player, result_player]:
+		if player != null:
+			player.stop()
+			if player.stream_paused: player.stream_paused = false
+
+func _sync_match_audio() -> void:
+	if not sound_on or screen != "game" or test_mode:
+		_stop_match_audio()
+		return
+	for player in [cheer_player, result_player]:
+		# Web sample playback resumes on this setter, so only write on transitions.
+		var should_pause = paused and phase != "end"
+		if player != null and player.stream_paused != should_pause:
+			player.stream_paused = should_pause
 
 # All artwork is drawn in a fixed 1440 x 900 design space.
 func interface_scale() -> float:
@@ -2384,6 +2443,7 @@ func _receive_packet(d: Dictionary) -> void:
 				for key in ["dash","buffer"]: players[i][key] = p.get(key,0.0)
 			net_ball = Vector3(float(d.ball[0]),float(d.ball[1]),float(d.ball[2]))
 			var old_phase = phase
+			var old_score_total = int(score[0]) + int(score[1])
 			phase = str(d.phase)
 			if old_phase=="serve" and phase=="rally": toast_time = 0
 			score = [int(d.score[0]),int(d.score[1])]
@@ -2398,10 +2458,12 @@ func _receive_packet(d: Dictionary) -> void:
 			last_reason = str(d.reason)
 			last_speed = int(d.speed)
 			match_time = float(d.time)
+			if int(score[0]) + int(score[1]) > old_score_total: _score_cheer()
 			if phase == "end" and old_phase != "end": _end_match(int(d.winner))
 			if phase == "point" and old_phase != "point": _sfx("point")
 
 func _rematch() -> void:
+	_stop_match_audio()
 	if mode == "online":
 		_net_send({"type":"rematch"})
 	elif mode == "ai" and not challenge_id.is_empty():
